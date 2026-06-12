@@ -1,0 +1,179 @@
+using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Backend.Models
+{
+    public class User
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public string DeviceUniqueId { get; set; } = string.Empty;
+
+        public string Username { get; set; } = string.Empty;
+
+        public string PasswordHash { get; set; } = string.Empty;
+
+        public string PasswordSalt { get; set; } = string.Empty;
+
+        [Required]
+        public string Role { get; set; } = "Public"; // "Public", "Owner", "Admin"
+
+        public bool IsVerified { get; set; } = true; // Owner starts as false until approved
+
+        public bool IsPoiOwnerVerified { get; set; } = false;
+
+        public DateTime LastActive { get; set; } = DateTime.UtcNow;
+    }
+
+    public class UserTelemetry
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+
+        public double Latitude { get; set; }
+
+        public double Longitude { get; set; }
+
+        [Required]
+        public string Action { get; set; } = string.Empty; // e.g., "LISTENED_STALL", "CHAT_AI"
+    }
+
+    public class FoodStall
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        public string Address { get; set; } = string.Empty;
+
+        public double Latitude { get; set; }
+
+        public double Longitude { get; set; }
+
+        [Required]
+        public string OriginalHistory { get; set; } = string.Empty; // Vietnamese source description
+
+        public Guid? OwnerId { get; set; } // Nullable for public/unowned seed stalls
+
+        public bool IsVerified { get; set; } = true; // True for seeded stalls, False for new owner submissions
+
+        public string AdminNote { get; set; } = string.Empty;
+    }
+
+    public class Localization
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid FoodStallId { get; set; }
+
+        [ForeignKey(nameof(FoodStallId))]
+        public FoodStall? FoodStall { get; set; }
+
+        [Required]
+        public string LanguageCode { get; set; } = string.Empty; // e.g., "en", "ja", "ko"
+
+        [Required]
+        public string TranslatedText { get; set; } = string.Empty;
+
+        [Required]
+        public string TextHash { get; set; } = string.Empty; // MD5 hash of TranslatedText
+
+        [Required]
+        public string AudioUrl { get; set; } = string.Empty; // URL to generated MP3 file
+    }
+
+    public class OwnerRegistration
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        public string CccdEncrypted { get; set; } = string.Empty; // PII encrypted using AES-256
+
+        [Required]
+        public string Status { get; set; } = "Pending"; // "Pending", "Approved", "Rejected"
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public string AdminNote { get; set; } = string.Empty;
+    }
+
+    public class UserSession
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string Token { get; set; } = string.Empty;
+
+        public DateTime ExpiresAt { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class AiUsageLimit
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        public DateTime Date { get; set; } = DateTime.SpecifyKind(DateTime.UtcNow.Date, DateTimeKind.Utc);
+
+        public int Count { get; set; } = 0;
+    }
+
+    public class Notification
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string Message { get; set; } = string.Empty;
+
+        public bool IsRead { get; set; } = false;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+}

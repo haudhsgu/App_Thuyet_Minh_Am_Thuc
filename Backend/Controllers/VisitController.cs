@@ -53,13 +53,22 @@ namespace Backend.Controllers
             return Ok(stats);
         }
 
+        // ĐÃ SỬA LỖI Ở API NÀY: Mở quyền cho cả Admin và Owner
         [HttpGet("stalls/{foodStallId}/daily")]
         public async Task<IActionResult> GetDailyStats(Guid foodStallId, [FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
         {
-            var admin = await GetAdminUserAsync();
-            if (admin == null)
+            // 1. Lấy thông tin user hiện tại (bất kể role là gì)
+            var user = await GetAuthorizedUserAsync();
+            if (user == null)
             {
-                return Unauthorized("Admin privileges required.");
+                return Unauthorized("Sign in required.");
+            }
+
+            // 2. Kiểm tra quyền: Chỉ cho phép Admin HOẶC Owner đi tiếp
+            if (!string.Equals(user.Role, "Admin", StringComparison.OrdinalIgnoreCase) && 
+                !string.Equals(user.Role, "Owner", StringComparison.OrdinalIgnoreCase))
+            {
+                return Unauthorized("Admin or Owner privileges required.");
             }
 
             var stallExists = await _dbContext.FoodStalls.AnyAsync(s => s.Id == foodStallId);

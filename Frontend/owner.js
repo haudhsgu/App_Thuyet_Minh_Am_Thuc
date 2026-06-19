@@ -16,6 +16,7 @@ let ownerMap;
 let stallMarker = null;
 let currentStall = null;
 
+
 // UI Elements
 const ownerNameSpan = document.getElementById('owner-name');
 const logoutBtn = document.getElementById('logout-btn');
@@ -42,7 +43,7 @@ const aiStatusText = document.getElementById('ai-status-text');
 // Init details on load
 window.addEventListener('DOMContentLoaded', () => {
   ownerNameSpan.innerText = `Chủ quán: ${username}`;
-  
+
   // Wire notification toggle
   notifyBell.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -64,6 +65,57 @@ window.addEventListener('DOMContentLoaded', () => {
 
   aiEnhanceBtn.addEventListener('click', enhanceDescription);
   aiApplyBtn.addEventListener('click', applyAiDescription);
+
+  // Tab switching (Owner page): mirror admin tab behavior
+  const tabButtons = document.querySelectorAll('.owner-tabs .tab-btn');
+  const ownerMainContent = document.querySelector('main.owner-layout');
+  const ownerStatsContent = document.getElementById('owner-stats');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const tab = btn.getAttribute('data-tab');
+      if (tab === 'owner-main') {
+        if (ownerMainContent) ownerMainContent.style.display = '';
+        if (ownerStatsContent) ownerStatsContent.style.display = 'none';
+      } else if (tab === 'owner-stats') {
+        if (ownerMainContent) ownerMainContent.style.display = 'none';
+        if (ownerStatsContent) ownerStatsContent.style.display = 'block';
+        // refresh iframe if present
+        const iframe = document.getElementById('owner-stats-iframe');
+        if (iframe) {
+          // reload to refresh data
+          iframe.contentWindow?.location?.reload?.();
+        }
+      }
+    });
+// Xóa toàn bộ đoạn openStatsBtn handler cũ
+// Thay bằng tab switching chung cho tất cả .tab-btn
+document.querySelectorAll('.owner-tabs .tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    // Bỏ active tất cả
+    document.querySelectorAll('.owner-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const tab = btn.getAttribute('data-tab');
+
+    // Ẩn/hiện content tương ứng
+    const ownerMain = document.querySelector('main.owner-layout');
+    const ownerStats = document.getElementById('owner-stats');
+
+    if (tab === 'owner-main') {
+      if (ownerMain) ownerMain.style.display = 'grid';
+      if (ownerStats) ownerStats.style.display = 'none';
+    } else if (tab === 'owner-stats') {
+      if (ownerMain) ownerMain.style.display = 'none';
+      if (ownerStats) ownerStats.style.display = 'block';
+    }
+  });
+});
+    // header stats button removed; use tab buttons below
+  });
 });
 
 // Load food stall details
@@ -79,7 +131,7 @@ async function loadStallDetails() {
       const stalls = await response.json();
       if (stalls && stalls.length > 0) {
         currentStall = stalls[0]; // Active owner stall
-        
+
         stallNameInput.value = currentStall.name;
         stallAddressInput.value = currentStall.address;
         latInput.value = currentStall.latitude.toFixed(6);
@@ -91,6 +143,7 @@ async function loadStallDetails() {
 
         // Init Map
         initOwnerMap(currentStall.latitude, currentStall.longitude);
+        // Map initialized for owner
       } else {
         stallStatusSpan.innerText = 'Chưa có quán ăn';
         stallStatusSpan.style.background = '#3e3e50';
@@ -185,7 +238,7 @@ stallForm.addEventListener('submit', async (e) => {
     if (response.ok) {
       submitFeedback.innerText = 'Cập nhật thành công. Đang chờ Admin phê duyệt để hiển thị lên bản đồ.';
       submitFeedback.style.color = '#10B981';
-      
+
       currentStall.isVerified = false;
       updateStatusBadge(false, 'Chờ duyệt thuyết minh mới.');
     } else {
@@ -211,7 +264,7 @@ async function loadNotifications() {
 
     if (response.ok) {
       const list = await response.json();
-      
+
       const unreadCount = list.filter(n => !n.isRead).length;
       if (unreadCount > 0) {
         notifyCount.innerText = unreadCount;
@@ -249,7 +302,7 @@ async function loadAiUsage() {
       const usage = await response.json();
       const count = usage.count;
       const limit = usage.limit;
-      
+
       aiQuotaSpan.innerText = `Hôm nay đã dùng: ${count}/${limit} lượt`;
       if (count >= limit) {
         aiEnhanceBtn.disabled = true;
@@ -289,7 +342,7 @@ async function enhanceDescription() {
       aiResponseDiv.innerText = data.enhancedText;
       aiStatusText.innerText = 'Tối ưu hóa thành công!';
       aiApplyBtn.style.display = 'inline-block';
-      
+
       // Update quota
       loadAiUsage();
     } else {
@@ -314,3 +367,5 @@ function applyAiDescription() {
     aiStatusText.innerText = 'Đã áp dụng mô tả AI vào bài viết gốc!';
   }
 }
+
+// owner chart functions removed — stats page moved to owner-stats.html

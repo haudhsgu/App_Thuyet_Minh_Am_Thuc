@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -63,6 +64,8 @@ namespace Backend.Models
         public double Latitude { get; set; }
 
         public double Longitude { get; set; }
+
+        public ICollection<StallMenuImage> MenuImages { get; set; } = new List<StallMenuImage>();
 
         [Required]
         public string OriginalHistory { get; set; } = string.Empty; // Vietnamese source description
@@ -204,6 +207,27 @@ namespace Backend.Models
         public double DistanceMeter { get; set; }
 
         public bool IsValidVisit { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class StallMenuImage
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid FoodStallId { get; set; }
+
+        [ForeignKey(nameof(FoodStallId))]
+        public FoodStall? FoodStall { get; set; }
+
+        [Required]
+        public string ImageUrl { get; set; } = string.Empty;
+
+        public bool IsMainImage { get; set; } = false;
+
+        public int DisplayOrder { get; set; } = 0;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

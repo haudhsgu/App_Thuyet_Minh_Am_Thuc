@@ -22,6 +22,10 @@
 
   <!-- Local stylesheet -->
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Diagnostic: mark that HTML was parsed
+    console.debug('index.html parsed');
+  </script>
 </head>
 
 <body>
@@ -124,10 +128,36 @@
     <span id="gps-status">GPS: Tắt</span>
   </div>
 
+  <div class="menu-modal" id="menu-modal" role="dialog" aria-modal="true" aria-labelledby="menu-modal-title">
+    <div class="menu-modal-panel">
+      <div class="menu-header">
+        <h3 id="menu-modal-title">Menu quán</h3>
+        <button class="menu-close-btn" id="menu-modal-close" type="button">Đóng</button>
+      </div>
+      <div class="menu-message" id="menu-modal-message">Đang tải menu...</div>
+      <div class="menu-carousel" id="menu-carousel">
+        <button class="carousel-nav prev" id="menu-prev" aria-label="Previous">‹</button>
+        <div class="menu-viewport">
+          <div class="menu-slides" id="menu-images-container"></div>
+        </div>
+        <button class="carousel-nav next" id="menu-next" aria-label="Next">›</button>
+      </div>
+      <div class="carousel-indicators" id="menu-carousel-indicators" aria-hidden="false"></div>
+    </div>
+  </div>
+
   <audio id="audio-player" style="display: none;"></audio>
 
   <!-- Main controller module -->
-  <script type="module" src="app.js?v=5"></script>
+  <script>
+    // Diagnostic: ensure module script is added after DOM
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = 'app.js?v=5';
+    s.onload = () => console.debug('app.js module loaded');
+    s.onerror = (e) => console.error('Failed to load app.js', e);
+    document.body.appendChild(s);
+  </script>
 </body>
 
 </html>

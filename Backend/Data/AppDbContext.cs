@@ -18,6 +18,7 @@ namespace Backend.Data
         public DbSet<AiUsageLimit> AiUsageLimits => Set<AiUsageLimit>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<StallVisit> StallVisits => Set<StallVisit>();
+        public DbSet<StallMenuImage> StallMenuImages => Set<StallMenuImage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

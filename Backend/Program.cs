@@ -75,6 +75,7 @@ using (var scope = app.Services.CreateScope())
         {
             _ = context.OwnerRegistrations.Any();
             _ = context.StallVisits.Any();
+            _ = context.StallMenuImages.Any();
             dbOk = true;
         }
         catch

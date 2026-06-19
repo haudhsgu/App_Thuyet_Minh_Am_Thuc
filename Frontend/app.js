@@ -13,29 +13,33 @@ let lastTriggeredStallId = null;
 const deviceId = getOrCreateDeviceId();
 
 // UI Elements
-const serverUrlInput = document.getElementById('server-url');
-const langPicker = document.getElementById('lang-picker');
-const syncBtn = document.getElementById('sync-btn');
-const gpsSwitch = document.getElementById('gps-switch');
-const stallCard = document.getElementById('stall-card');
-const stallName = document.getElementById('stall-name');
-const stallDistance = document.getElementById('stall-distance');
-const stallAddress = document.getElementById('stall-address');
-const stallDescription = document.getElementById('stall-description');
-const chatLog = document.getElementById('chat-log');
-const chatInput = document.getElementById('chat-input');
-const chatSendBtn = document.getElementById('chat-send-btn');
-const syncStatus = document.getElementById('sync-status');
-const gpsStatus = document.getElementById('gps-status');
-const simWalkBtn = document.getElementById('sim-walk-btn');
+let serverUrlInput;
+let langPicker;
+let syncBtn;
+let gpsSwitch;
+let stallCard;
+let stallName;
+let stallDistance;
+let stallAddress;
+let stallDescription;
+let chatLog;
+let chatInput;
+let chatSendBtn;
+let syncStatus;
+let gpsStatus;
+let simWalkBtn;
 
-// HTML5 Audio Elements & States
-const audioPlayer = document.getElementById('audio-player');
-const playAudioBtn = document.getElementById('play-audio-btn');
-const playBtnIcon = document.getElementById('play-btn-icon');
-const playBtnText = document.getElementById('play-btn-text');
-const audioStatus = document.getElementById('audio-status');
-const viewMenuBtn = document.getElementById('view-menu-btn');
+// HTML5 Audio Elements & States (will be initialized in initApp)
+let audioPlayer;
+let playAudioBtn;
+let playBtnIcon;
+let playBtnText;
+let audioStatus;
+let viewMenuBtn;
+let menuModal;
+let menuImagesContainer;
+let menuModalMessage;
+let menuModalClose;
 let currentAudioUrl = '';
 
 // Walk simulation variables (Vĩnh Khánh street route District 4)
@@ -55,10 +59,10 @@ let simIntervalId = null;
 let simRouteIndex = 0;
 
 // Default API Server URL fallback (pointing to port 5080 on the same host)
-const defaultServerUrl = window.location.port === '5080'
-  ? window.location.origin
-  : `${window.location.protocol}//${window.location.hostname}:5080`;
-serverUrlInput.value = defaultServerUrl;
+let defaultServerUrl;
+
+// Set default server URL in initApp() after DOM ready
+
 
 // Translation dictionary for Frontend UI elements
 const uiTranslations = {
@@ -280,6 +284,47 @@ window.onerror = function (message, source, lineno, colno, error) {
 
 // Initialize app immediately since type="module" runs after DOM is ready
 async function initApp() {
+  // Initialize ALL DOM elements first (must do this before any DOM operations)
+  serverUrlInput = document.getElementById('server-url');
+  langPicker = document.getElementById('lang-picker');
+  syncBtn = document.getElementById('sync-btn');
+  gpsSwitch = document.getElementById('gps-switch');
+  stallCard = document.getElementById('stall-card');
+  stallName = document.getElementById('stall-name');
+  stallDistance = document.getElementById('stall-distance');
+  stallAddress = document.getElementById('stall-address');
+  stallDescription = document.getElementById('stall-description');
+  chatLog = document.getElementById('chat-log');
+  chatInput = document.getElementById('chat-input');
+  chatSendBtn = document.getElementById('chat-send-btn');
+  syncStatus = document.getElementById('sync-status');
+  gpsStatus = document.getElementById('gps-status');
+  simWalkBtn = document.getElementById('sim-walk-btn');
+
+  audioPlayer = document.getElementById('audio-player');
+  playAudioBtn = document.getElementById('play-audio-btn');
+  playBtnIcon = document.getElementById('play-btn-icon');
+  playBtnText = document.getElementById('play-btn-text');
+  audioStatus = document.getElementById('audio-status');
+  viewMenuBtn = document.getElementById('view-menu-btn');
+  menuModal = document.getElementById('menu-modal');
+  menuImagesContainer = document.getElementById('menu-images-container');
+  menuModalMessage = document.getElementById('menu-modal-message');
+  menuModalClose = document.getElementById('menu-modal-close');
+
+  // Set default server URL after DOM ready
+  defaultServerUrl = window.location.port === '5080'
+    ? window.location.origin
+    : `${window.location.protocol}//${window.location.hostname}:5080`;
+  serverUrlInput.value = defaultServerUrl;
+
+  console.debug('All DOM elements initialized', {
+    viewMenuBtn: !!viewMenuBtn,
+    menuModal: !!menuModal,
+    serverUrlInput: !!serverUrlInput,
+    langPicker: !!langPicker
+  });
+
   // Register Service Worker
   if ('serviceWorker' in navigator) {
     try {
@@ -323,11 +368,32 @@ async function initApp() {
     sendHeartbeat();
     setInterval(sendHeartbeat, 30000);
 
+    console.debug('menu button init', { viewMenuBtn, menuModal, menuModalMessage, menuImagesContainer });
+
     if (viewMenuBtn) {
-      viewMenuBtn.addEventListener('click', () => {
+      viewMenuBtn.addEventListener('click', async () => {
+        console.debug('view-menu-btn clicked', { activeStallId: getActiveStallId() });
         const activeStallId = getActiveStallId();
-        if (activeStallId) {
-          void recordUserAction(activeStallId, 'VIEW_MENU');
+        if (!activeStallId) {
+          showMenuModalMessage('Vui lòng đứng gần một quán để xem menu.');
+          return;
+        }
+
+        void recordUserAction(activeStallId, 'VIEW_MENU');
+        await openMenuModal(activeStallId);
+      });
+    }
+
+    if (menuModalClose) {
+      menuModalClose.addEventListener('click', () => {
+        if (menuModal) menuModal.style.display = 'none';
+      });
+    }
+
+    if (menuModal) {
+      menuModal.addEventListener('click', (event) => {
+        if (event.target === menuModal) {
+          menuModal.style.display = 'none';
         }
       });
     }
@@ -348,7 +414,13 @@ async function initApp() {
   }
 }
 
-initApp();
+// Ensure DOM is fully loaded before initializing
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  // DOM already loaded, init immediately
+  initApp();
+}
 async function sendHeartbeat() {
   const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
   if (!serverUrl) return;
@@ -719,8 +791,137 @@ function updatePlayButtonState(isPlaying) {
   }
 }
 
+function showMenuModalMessage(message) {
+  if (!menuModal || !menuModalMessage || !menuImagesContainer) return;
+  menuImagesContainer.innerHTML = '';
+  menuModalMessage.innerText = message;
+  menuModal.style.display = 'flex';
+}
+
+function renderMenuImages(images) {
+  if (!menuImagesContainer || !menuModalMessage) return;
+  menuImagesContainer.innerHTML = '';
+  const indicators = document.getElementById('menu-carousel-indicators');
+  if (indicators) indicators.innerHTML = '';
+  if (!Array.isArray(images) || images.length === 0) {
+    menuModalMessage.innerText = 'Quán này chưa cập nhật menu.';
+    return;
+  }
+
+  menuModalMessage.innerText = '';
+  // Build slides
+  images.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'menu-image-item';
+
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = `Menu image ${idx + 1}`;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => { image.style.opacity = '0.5'; });
+
+    item.appendChild(image);
+    menuImagesContainer.appendChild(item);
+
+    // indicator
+    if (indicators) {
+      const btn = document.createElement('button');
+      btn.dataset.index = String(idx);
+      btn.addEventListener('click', () => showSlide(idx));
+      indicators.appendChild(btn);
+    }
+  });
+
+  // Initialize carousel state
+  currentCarouselIndex = 0;
+  updateCarousel();
+}
+
+async function openMenuModal(activeStallId) {
+  if (!activeStallId) {
+    showMenuModalMessage('Không tìm thấy quán hiện tại.');
+    return;
+  }
+
+  const serverUrl = serverUrlInput.value.trim().replace(/\/+$/, '');
+  const url = `${serverUrl}/api/foodstalls/${activeStallId}/menu`;
+
+  console.debug('openMenuModal fetch url', url);
+
+  showMenuModalMessage('Đang tải menu...');
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      showMenuModalMessage('Không thể tải menu. Vui lòng thử lại.');
+      console.error('Menu load failed:', errorText);
+      return;
+    }
+
+    const imageUrls = await response.json();
+    renderMenuImages(imageUrls);
+    // show modal
+    if (menuModal) menuModal.style.display = 'flex';
+    // attach nav handlers
+    attachCarouselHandlers();
+  } catch (error) {
+    showMenuModalMessage('Lỗi kết nối. Vui lòng kiểm tra mạng.');
+    console.error(error);
+  }
+}
+
 function getActiveStallId() {
   return stallCard?.dataset?.stallId || lastTriggeredStallId || '';
+}
+
+// Carousel state & helpers
+let currentCarouselIndex = 0;
+function updateCarousel() {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  const indicators = document.querySelectorAll('.carousel-indicators button');
+  const slidesContainer = document.querySelector('.menu-slides');
+  if (!slidesContainer || slides.length === 0) return;
+  const w = slidesContainer.clientWidth;
+  slidesContainer.style.transform = `translateX(-${currentCarouselIndex * w}px)`;
+  indicators.forEach((b, i) => b.classList.toggle('active', i === currentCarouselIndex));
+}
+
+function showSlide(index) {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  if (!slides || slides.length === 0) return;
+  currentCarouselIndex = Math.max(0, Math.min(index, slides.length - 1));
+  updateCarousel();
+}
+
+function attachCarouselHandlers() {
+  const prev = document.getElementById('menu-prev');
+  const next = document.getElementById('menu-next');
+  const indicators = document.getElementById('menu-carousel-indicators');
+  if (prev) prev.onclick = () => showSlide(currentCarouselIndex - 1);
+  if (next) next.onclick = () => showSlide(currentCarouselIndex + 1);
+
+  // swipe support
+  const viewport = document.querySelector('.menu-viewport');
+  if (viewport) {
+    let startX = 0;
+    viewport.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    viewport.addEventListener('touchend', (e) => {
+      const endX = e.changedTouches[0].clientX;
+      if (endX - startX > 40) showSlide(currentCarouselIndex - 1);
+      else if (startX - endX > 40) showSlide(currentCarouselIndex + 1);
+    }, { passive: true });
+  }
+
+  // keyboard navigation when modal open
+  window.addEventListener('keydown', carouselKeyHandler);
+}
+
+function carouselKeyHandler(e) {
+  if (!menuModal || menuModal.style.display !== 'flex') return;
+  if (e.key === 'ArrowLeft') showSlide(currentCarouselIndex - 1);
+  if (e.key === 'ArrowRight') showSlide(currentCarouselIndex + 1);
+  if (e.key === 'Escape') { if (menuModal) menuModal.style.display = 'none'; }
 }
 
 async function recordUserAction(foodStallId, actionType) {

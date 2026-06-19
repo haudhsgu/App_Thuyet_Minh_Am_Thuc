@@ -1,0 +1,6 @@
+﻿.vs/
+Backend/packages/
+Backend/wwwroot/audio/
+node_modules/
+[Bb]in/
+[Oo]bj/

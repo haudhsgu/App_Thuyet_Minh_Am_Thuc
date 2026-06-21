@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -64,6 +65,7 @@ namespace Backend.Models
 
         public double Longitude { get; set; }
 
+        public ICollection<StallMenuImage> MenuImages { get; set; } = new List<StallMenuImage>();
         [Required]
         public string OriginalHistory { get; set; } = string.Empty; // Vietnamese source description
 
@@ -173,6 +175,58 @@ namespace Backend.Models
         public string Message { get; set; } = string.Empty;
 
         public bool IsRead { get; set; } = false;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class StallVisit
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid FoodStallId { get; set; }
+
+        [ForeignKey(nameof(FoodStallId))]
+        public FoodStall? FoodStall { get; set; }
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string ActionType { get; set; } = string.Empty;
+
+        public double UserLatitude { get; set; }
+
+        public double UserLongitude { get; set; }
+
+        public double DistanceMeter { get; set; }
+
+        public bool IsValidVisit { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class StallMenuImage
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid FoodStallId { get; set; }
+
+        [ForeignKey(nameof(FoodStallId))]
+        public FoodStall? FoodStall { get; set; }
+
+        [Required]
+        public string ImageUrl { get; set; } = string.Empty;
+
+        public bool IsMainImage { get; set; } = false;
+
+        public int DisplayOrder { get; set; } = 0;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

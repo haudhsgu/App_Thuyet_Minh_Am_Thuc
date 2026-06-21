@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Bảng Quản Trị Admin - Ốc Quận 4</title>
   <link rel="stylesheet" href="style.css">
-  
   <!-- Leaflet Map library -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
   <style>
     body {
@@ -16,29 +17,33 @@
       height: auto;
       min-height: 100vh;
       background-image: radial-gradient(circle at 10% 20%, rgba(255, 122, 0, 0.05) 0%, transparent 40%),
-                        radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
+        radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
     }
     .header-panel {
       position: sticky;
       top: 0;
       z-index: 1000;
     }
+
     .admin-layout {
       max-width: 1200px;
       margin: 40px auto;
       padding: 0 20px;
     }
+
     .metrics-container {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 20px;
       margin-bottom: 30px;
     }
+
     @media (max-width: 768px) {
       .metrics-container {
         grid-template-columns: 1fr;
       }
     }
+
     .metric-card {
       background: var(--panel-bg);
       backdrop-filter: blur(12px);
@@ -48,16 +53,21 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
       position: relative;
       overflow: hidden;
     }
+
     .metric-card::before {
       content: "";
       position: absolute;
-      top: 0; left: 0; width: 4px; height: 100%;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
       background: var(--primary-color);
     }
+
     .metric-card.online::before {
       background: #10b981;
     }
@@ -68,15 +78,18 @@
       letter-spacing: 0.5px;
       margin-bottom: 6px;
     }
+
     .metric-info span {
       font-size: 28px;
       font-weight: 800;
       color: var(--text-white);
     }
+
     .metric-icon {
       font-size: 32px;
       opacity: 0.8;
     }
+
     /* Tabs styling */
     .admin-tabs {
       display: flex;
@@ -85,6 +98,7 @@
       margin-bottom: 25px;
       overflow-x: auto;
     }
+
     .tab-btn {
       background: transparent;
       color: var(--text-gray);
@@ -105,6 +119,7 @@
       color: var(--primary-color);
       border-bottom-color: var(--primary-color);
     }
+
     .tab-content {
       display: none;
       animation: fadeIn 0.3s ease-out;
@@ -112,9 +127,17 @@
     .tab-content.active {
       display: block;
     }
+
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
     /* Tables styling */
     .admin-table-wrapper {
@@ -123,7 +146,137 @@
       border: 1px solid var(--border-color);
       border-radius: 12px;
       overflow-x: auto;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .visit-dashboard-grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 1024px) {
+      .visit-dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .visit-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+    }
+
+    .visit-panel-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .visit-panel-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-white);
+      margin-bottom: 4px;
+    }
+
+    .visit-panel-subtitle {
+      font-size: 12px;
+      color: var(--text-gray);
+    }
+
+    .visit-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: end;
+      padding: 0 16px 16px;
+    }
+
+    .visit-filter-item {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-gray);
+    }
+
+    .visit-filter-item input {
+      min-width: 140px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-color);
+      color: var(--text-white);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: inherit;
+    }
+
+    .visit-filter-actions {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .visit-ranking-scroll {
+      max-height: 430px;
+      overflow-y: auto;
+    }
+
+    .visit-ranking-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    .visit-ranking-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(0, 0, 0, 0.65);
+    }
+
+    .visit-ranking-row {
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .visit-ranking-row:hover td {
+      background: rgba(255, 122, 0, 0.08);
+    }
+
+    .visit-ranking-row.active td {
+      background: rgba(255, 122, 0, 0.14);
+    }
+
+    .visit-chart-area {
+      padding: 16px;
+    }
+
+    .visit-chart-card {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 16px;
+    }
+
+    .visit-chart-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .visit-chart-box {
+      height: 360px;
+      position: relative;
     }
     table {
       width: 100%;
@@ -177,19 +330,23 @@
       width: 100%;
       border-radius: 12px;
       border: 1px solid var(--border-color);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
     /* Modal note container */
     .note-modal {
       display: none;
       position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.7);
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
       z-index: 2000;
       justify-content: center;
       align-items: center;
       padding: 20px;
     }
+
     .modal-content {
       background: #1e1e2e;
       border: 1px solid var(--border-color);
@@ -197,12 +354,20 @@
       padding: 24px;
       width: 100%;
       max-width: 450px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
       animation: zoomIn 0.2s ease-out;
     }
+
     @keyframes zoomIn {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+      from {
+        transform: scale(0.95);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
     .pulsing-dot {
       width: 8px;
@@ -215,15 +380,18 @@
       margin-right: 6px;
       vertical-align: middle;
     }
+
     @keyframes pulse {
       0% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
       }
+
       70% {
         transform: scale(1);
         box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
       }
+
       100% {
         transform: scale(0.95);
         box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
@@ -231,6 +399,7 @@
     }
   </style>
 </head>
+
 <body>
 
   <!-- Header Section -->
@@ -247,7 +416,7 @@
   </header>
 
   <main class="admin-layout">
-    
+
     <!-- Metrics counters -->
     <div class="metrics-container">
       <div class="metric-card">
@@ -257,7 +426,7 @@
         </div>
         <div class="metric-icon">🏪</div>
       </div>
-      
+
       <div class="metric-card">
         <div class="metric-info">
           <h4>Người dùng đã đăng ký</h4>
@@ -280,11 +449,11 @@
       <button class="tab-btn active" data-tab="live-tracking">📍 Giám Sát Người Dùng</button>
       <button class="tab-btn" data-tab="registrations">📝 Duyệt Đăng Ký Chủ Quán</button>
       <button class="tab-btn" data-tab="submissions">✍ Duyệt Thuyết Minh</button>
+      <button class="tab-btn" data-tab="visits-dashboard">📊 Lượt Ghé Thăm</button>
       <button class="tab-btn" data-tab="telemetry">📋 Nhật Ký Hệ Thống</button>
     </div>
 
     <!-- Tab Contents -->
-    
     <!-- 1. Live Tracking Map -->
     <div class="tab-content active" id="live-tracking">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
@@ -339,7 +508,69 @@
       </div>
     </div>
 
-    <!-- 4. Telemetry Audit Logs -->
+    <!-- 4. Visit Dashboard -->
+    <div class="tab-content" id="visits-dashboard">
+      <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
+        <b>Bảng xếp hạng ghé thăm hợp lệ:</b> Chỉ đếm các lượt ghi nhận hợp lệ trong bán kính tối đa 80m và không trùng trong 2 giờ.
+      </div>
+      <div class="visit-dashboard-grid">
+        <div class="visit-panel">
+          <div class="visit-panel-header">
+            <div>
+              <div class="visit-panel-title">Bảng xếp hạng lượt ghé</div>
+              <div class="visit-panel-subtitle">Click một quán để xem biểu đồ lượt ghé theo ngày</div>
+            </div>
+          </div>
+          <div class="visit-ranking-scroll">
+            <table class="visit-ranking-table">
+              <thead>
+                <tr>
+                  <th style="width: 72px;">#</th>
+                  <th>Tên Quán</th>
+                  <th style="width: 110px;">Lượt ghé</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-container">
+                <tr>
+                  <td colspan="3" style="text-align: center; color: var(--text-gray);">Đang tải thống kê lượt ghé thăm...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="visit-panel">
+          <div class="visit-panel-header">
+            <div>
+              <div class="visit-panel-title" id="visit-chart-title">Chọn một quán để xem biểu đồ</div>
+              <div class="visit-panel-subtitle" id="visit-chart-subtitle">Biểu đồ lượt ghé theo ngày trong khoảng đã lọc</div>
+            </div>
+          </div>
+          <div class="visit-filter-bar">
+            <label class="visit-filter-item">
+              Từ ngày
+              <input type="date" id="visit-from-date">
+            </label>
+            <label class="visit-filter-item">
+              Đến ngày
+              <input type="date" id="visit-to-date">
+            </label>
+            <div class="visit-filter-actions">
+              <button class="btn" id="visit-filter-apply" style="padding: 8px 14px; font-size: 12px;">Áp dụng</button>
+            </div>
+          </div>
+          <div class="visit-chart-area">
+            <div class="visit-chart-card">
+              <div class="visit-chart-box">
+                <canvas id="visit-chart-canvas"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. Telemetry Audit Logs -->
     <div class="tab-content" id="telemetry">
       <div class="admin-table-wrapper">
         <table>
@@ -368,7 +599,7 @@
     <div class="modal-content">
       <h3 style="color: var(--primary-color); margin-bottom: 12px; font-size: 15px;">Nhập ghi chú phản hồi (admin_note)</h3>
       <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 15px;">Vui lòng nhập lý do từ chối để gửi lại cho chủ quán.</p>
-      
+
       <div class="form-group">
         <textarea id="modal-note-text" class="form-control" style="height: 100px; resize: none;" placeholder="Lý do từ chối..."></textarea>
       </div>

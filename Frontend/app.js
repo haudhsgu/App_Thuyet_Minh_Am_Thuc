@@ -13,28 +13,33 @@ let lastTriggeredStallId = null;
 const deviceId = getOrCreateDeviceId();
 
 // UI Elements
-const serverUrlInput = document.getElementById('server-url');
-const langPicker = document.getElementById('lang-picker');
-const syncBtn = document.getElementById('sync-btn');
-const gpsSwitch = document.getElementById('gps-switch');
-const stallCard = document.getElementById('stall-card');
-const stallName = document.getElementById('stall-name');
-const stallDistance = document.getElementById('stall-distance');
-const stallAddress = document.getElementById('stall-address');
-const stallDescription = document.getElementById('stall-description');
-const chatLog = document.getElementById('chat-log');
-const chatInput = document.getElementById('chat-input');
-const chatSendBtn = document.getElementById('chat-send-btn');
-const syncStatus = document.getElementById('sync-status');
-const gpsStatus = document.getElementById('gps-status');
-const simWalkBtn = document.getElementById('sim-walk-btn');
+let serverUrlInput;
+let langPicker;
+let syncBtn;
+let gpsSwitch;
+let stallCard;
+let stallName;
+let stallDistance;
+let stallAddress;
+let stallDescription;
+let chatLog;
+let chatInput;
+let chatSendBtn;
+let syncStatus;
+let gpsStatus;
+let simWalkBtn;
 
-// HTML5 Audio Elements & States
-const audioPlayer = document.getElementById('audio-player');
-const playAudioBtn = document.getElementById('play-audio-btn');
-const playBtnIcon = document.getElementById('play-btn-icon');
-const playBtnText = document.getElementById('play-btn-text');
-const audioStatus = document.getElementById('audio-status');
+// HTML5 Audio Elements & States (will be initialized in initApp)
+let audioPlayer;
+let playAudioBtn;
+let playBtnIcon;
+let playBtnText;
+let audioStatus;
+let viewMenuBtn;
+let menuModal;
+let menuImagesContainer;
+let menuModalMessage;
+let menuModalClose;
 let currentAudioUrl = '';
 
 // Walk simulation variables (Vĩnh Khánh street route District 4)
@@ -54,10 +59,9 @@ let simIntervalId = null;
 let simRouteIndex = 0;
 
 // Default API Server URL fallback (pointing to port 5080 on the same host)
-const defaultServerUrl = window.location.port === '5080'
-  ? window.location.origin
-  : `${window.location.protocol}//${window.location.hostname}:5080`;
-serverUrlInput.value = defaultServerUrl;
+let defaultServerUrl;
+
+// Set default server URL in initApp() after DOM ready
 
 // Translation dictionary for Frontend UI elements
 const uiTranslations = {
@@ -71,7 +75,7 @@ const uiTranslations = {
     chatSendBtn: "Gửi",
     addressPlaceholder: "Địa chỉ",
     descPlaceholder: "Đang tải thuyết minh...",
-    playBtn: "Phát Thuyết Minh",
+    playBtn: "Bắt đầu nghe thuyết minh",
     pauseBtn: "Tạm dừng",
     audioStatusReady: "Sẵn sàng",
     audioStatusLoading: "Đang tải âm thanh...",
@@ -80,6 +84,7 @@ const uiTranslations = {
     audioStatusEnded: "Đã phát xong",
     audioStatusNoAudio: "Không có âm thanh thuyết minh.",
     audioStatusNoFile: "Không có file âm thanh",
+    viewMenuBtn: "Mở xem menu chi tiết",
     syncStatusReady: "Hệ thống sẵn sàng. Vui lòng Đồng bộ để cập nhật dữ liệu.",
     syncStatusRunning: "Đang đồng bộ dữ liệu từ server...",
     syncStatusSuccess: (count) => `Đồng bộ thành công! Đã tải xuống ${count} quán ăn.`,
@@ -104,7 +109,7 @@ const uiTranslations = {
     chatSendBtn: "Send",
     addressPlaceholder: "Address",
     descPlaceholder: "Loading narration...",
-    playBtn: "Play Narration",
+    playBtn: "Start narration",
     pauseBtn: "Pause",
     audioStatusReady: "Ready",
     audioStatusLoading: "Loading audio...",
@@ -113,6 +118,7 @@ const uiTranslations = {
     audioStatusEnded: "Finished",
     audioStatusNoAudio: "No narration audio.",
     audioStatusNoFile: "No audio file",
+    viewMenuBtn: "Open detailed menu",
     syncStatusReady: "System ready. Please click Sync to download data.",
     syncStatusRunning: "Synchronizing data from server...",
     syncStatusSuccess: (count) => `Sync success! Downloaded ${count} food stalls.`,
@@ -137,7 +143,7 @@ const uiTranslations = {
     chatSendBtn: "送信",
     addressPlaceholder: "住所",
     descPlaceholder: "解説を読み込み中...",
-    playBtn: "音声を再生",
+    playBtn: "ナレーションを開始",
     pauseBtn: "一時停止",
     audioStatusReady: "準備完了",
     audioStatusLoading: "音声を読み込み中...",
@@ -146,6 +152,7 @@ const uiTranslations = {
     audioStatusEnded: "再生終了",
     audioStatusNoAudio: "音声解説はありません。",
     audioStatusNoFile: "音声ファイルがありません",
+    viewMenuBtn: "詳細メニューを開く",
     syncStatusReady: "システム準備完了。同期ボタンを押してデータを更新してください。",
     syncStatusRunning: "サーバーからデータを同期中...",
     syncStatusSuccess: (count) => `同期完了！${count}件の店舗情報をダウンロードしました。`,
@@ -170,7 +177,7 @@ const uiTranslations = {
     chatSendBtn: "전송",
     addressPlaceholder: "주소",
     descPlaceholder: "오디오 가이드 로딩 중...",
-    playBtn: "가이드 듣기",
+    playBtn: "해설 듣기 시작",
     pauseBtn: "일시정지",
     audioStatusReady: "준비 완료",
     audioStatusLoading: "오디오 로딩 중...",
@@ -179,6 +186,7 @@ const uiTranslations = {
     audioStatusEnded: "재생 완료",
     audioStatusNoAudio: "가이드 오디오가 없습니다.",
     audioStatusNoFile: "오디오 파일이 없음",
+    viewMenuBtn: "상세 메뉴 열기",
     syncStatusReady: "시스템이 준비되었습니다. 데이터를 업데이트하려면 동기화하십시오.",
     syncStatusRunning: "서버에서 데이터를 동기화하는 중...",
     syncStatusSuccess: (count) => `동기화 완료! ${count}개 맛집을 다운로드했습니다.`,
@@ -200,22 +208,21 @@ function updateUiLanguage(lang) {
   const trans = uiTranslations[lang] || uiTranslations.vi;
   const portalBtn = document.getElementById('portal-btn');
   if (portalBtn) portalBtn.innerText = trans.portalBtn || "🔑 Portal";
-  
   // Update static texts
   const subtitleEl = document.querySelector('.title-section span');
   if (subtitleEl) subtitleEl.innerText = trans.subtitle;
-  
+
   const gpsSwitchLabelEl = document.getElementById('gps-switch-label');
   if (gpsSwitchLabelEl) gpsSwitchLabelEl.innerText = trans.gpsLabel;
-  
+
   if (syncBtn) syncBtn.innerText = trans.syncBtn;
-  
+  if (viewMenuBtn) viewMenuBtn.innerText = trans.viewMenuBtn || "Xem menu";
+
   const chatHeaderEl = document.querySelector('.chat-header h3');
   if (chatHeaderEl) chatHeaderEl.innerText = trans.chatHeader;
-  
+
   if (chatSendBtn) chatSendBtn.innerText = trans.chatSendBtn;
   if (chatInput) chatInput.placeholder = trans.chatPlaceholder;
-  
   // Update welcome bubble in chat log if present
   if (chatLog) {
     const welcomeBubble = chatLog.querySelector('.bubble.ai:first-child');
@@ -235,10 +242,8 @@ function updateUiLanguage(lang) {
   if (simWalkBtn) {
     simWalkBtn.innerText = simIntervalId ? trans.simWalkStop : trans.simWalkStart;
   }
-  
   // Update audio control elements
   updatePlayButtonState(false);
-  
   // Update statuses safely
   if (syncStatus) {
     const currentSyncText = syncStatus.innerText || '';
@@ -274,6 +279,46 @@ window.onerror = function (message, source, lineno, colno, error) {
 
 // Initialize app immediately since type="module" runs after DOM is ready
 async function initApp() {
+  // Initialize ALL DOM elements first (must do this before any DOM operations)
+  serverUrlInput = document.getElementById('server-url');
+  langPicker = document.getElementById('lang-picker');
+  syncBtn = document.getElementById('sync-btn');
+  gpsSwitch = document.getElementById('gps-switch');
+  stallCard = document.getElementById('stall-card');
+  stallName = document.getElementById('stall-name');
+  stallDistance = document.getElementById('stall-distance');
+  stallAddress = document.getElementById('stall-address');
+  stallDescription = document.getElementById('stall-description');
+  chatLog = document.getElementById('chat-log');
+  chatInput = document.getElementById('chat-input');
+  chatSendBtn = document.getElementById('chat-send-btn');
+  syncStatus = document.getElementById('sync-status');
+  gpsStatus = document.getElementById('gps-status');
+  simWalkBtn = document.getElementById('sim-walk-btn');
+
+  audioPlayer = document.getElementById('audio-player');
+  playAudioBtn = document.getElementById('play-audio-btn');
+  playBtnIcon = document.getElementById('play-btn-icon');
+  playBtnText = document.getElementById('play-btn-text');
+  audioStatus = document.getElementById('audio-status');
+  viewMenuBtn = document.getElementById('view-menu-btn');
+  menuModal = document.getElementById('menu-modal');
+  menuImagesContainer = document.getElementById('menu-images-container');
+  menuModalMessage = document.getElementById('menu-modal-message');
+  menuModalClose = document.getElementById('menu-modal-close');
+
+  // Set default server URL after DOM ready
+  defaultServerUrl = window.location.port === '5080'
+    ? window.location.origin
+    : `${window.location.protocol}//${window.location.hostname}:5080`;
+  serverUrlInput.value = defaultServerUrl;
+
+  console.debug('All DOM elements initialized', {
+    viewMenuBtn: !!viewMenuBtn,
+    menuModal: !!menuModal,
+    serverUrlInput: !!serverUrlInput,
+    langPicker: !!langPicker
+  });
   // Register Service Worker
   if ('serviceWorker' in navigator) {
     try {
@@ -316,6 +361,37 @@ async function initApp() {
     // Start Heartbeat loop every 30s
     sendHeartbeat();
     setInterval(sendHeartbeat, 30000);
+
+    console.debug('menu button init', { viewMenuBtn, menuModal, menuModalMessage, menuImagesContainer });
+
+    if (viewMenuBtn) {
+      viewMenuBtn.addEventListener('click', async () => {
+        console.debug('view-menu-btn clicked', { activeStallId: getActiveStallId() });
+        const activeStallId = getActiveStallId();
+        if (!activeStallId) {
+          showMenuModalMessage('Vui lòng đứng gần một quán để xem menu.');
+          return;
+        }
+
+        void recordUserAction(activeStallId, 'VIEW_MENU');
+        await openMenuModal(activeStallId);
+      });
+    }
+
+    if (menuModalClose) {
+      menuModalClose.addEventListener('click', () => {
+        if (menuModal) menuModal.style.display = 'none';
+      });
+    }
+
+    if (menuModal) {
+      menuModal.addEventListener('click', (event) => {
+        if (event.target === menuModal) {
+          menuModal.style.display = 'none';
+        }
+      });
+    }
+
     playAudioBtn.addEventListener('click', onToggleAudio);
     audioPlayer.addEventListener('ended', () => {
       const trans = uiTranslations[langPicker.value] || uiTranslations.vi;
@@ -332,7 +408,13 @@ async function initApp() {
   }
 }
 
-initApp();
+// Ensure DOM is fully loaded before initializing
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  // DOM already loaded, init immediately
+  initApp();
+}
 async function sendHeartbeat() {
   const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
   if (!serverUrl) return;
@@ -376,7 +458,7 @@ function getOrCreateDeviceId() {
 function initMap() {
   // Center on Vinh Khanh street District 4
   const vinhKhanhCenter = [10.760124, 106.702958];
-  
+
   map = L.map('map', {
     zoomControl: true,
     attributionControl: false
@@ -412,7 +494,7 @@ async function loadStallPins() {
     const marker = L.marker([stall.latitude, stall.longitude], { icon: orangeIcon })
       .bindPopup(`<b>${stall.name}</b><br>${stall.address}`)
       .addTo(map);
-      
+
     markerLayer.push(marker);
   });
 
@@ -432,7 +514,7 @@ function onMapClicked(lat, lng) {
   currentCoords = { lat, lon: lng };
   updateUserLocationMarker(lat, lng);
   gpsStatus.innerText = trans.gpsStatusMock(lat, lng);
-  
+
   // Trigger proximity check
   checkStallsProximity(lat, lng);
 }
@@ -463,9 +545,9 @@ function onGpsToggle(e) {
     gpsStatus.innerText = trans.gpsStatusTracking;
 
     // Check if secure context for geolocation
-    const isSecureContext = window.location.protocol === 'https:' || 
-                            window.location.hostname === 'localhost' || 
-                            window.location.hostname === '127.0.0.1';
+    const isSecureContext = window.location.protocol === 'https:' ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
 
     if (!isSecureContext && window.location.protocol === 'http:') {
       const httpsWarning = {
@@ -474,15 +556,13 @@ function onGpsToggle(e) {
         ja: "モバイルデバイスで実際のGPSを使用するには、セキュアなHTTPS接続が必要です。\\n\\n「歩行シミュレート」機能を使用するか、HTTPS（例：ngrok/localtunnel）経由でアクセスしてください。",
         ko: "모바일 기기에서 실제 GPS를 사용하려면 안전한 HTTPS 연결이 필요합니다.\\n\\n'보행 시뮬레이션' 기능을 사용하거나 HTTPS(예: ngrok/localtunnel)를 구성해 주세요."
       };
-      
       alert(httpsWarning[langCode] || httpsWarning.vi);
-      
       gpsSwitch.checked = false;
       isGpsMockActive = false;
       gpsStatus.innerText = trans.gpsStatusOff;
       return;
     }
-    
+
     if ('geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
         position => {
@@ -496,7 +576,7 @@ function onGpsToggle(e) {
         err => {
           console.error('GPS tracking failed:', err);
           syncStatus.innerText = trans.gpsError;
-          
+
           // Reset toggle switch state
           gpsSwitch.checked = false;
           isGpsMockActive = false;
@@ -535,26 +615,31 @@ function onGpsToggle(e) {
 }
 
 // Sync stalls and prefetch audio files
+// Replace existing onSync() with this improved diagnostic version
 async function onSync() {
   const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
   const langCode = langPicker.value;
   const trans = uiTranslations[langCode] || uiTranslations.vi;
-  
+
   if (!serverUrl) {
     alert(langCode === 'vi' ? 'Không tìm thấy URL Server.' : 'Server URL not found.');
     return;
   }
 
+  const requestUrl = `${serverUrl}/api/foodstalls/sync?lang=${langCode}`;
+  console.log('Sync request URL:', requestUrl);
   syncStatus.style.color = '#FF7A00';
   syncStatus.innerText = trans.syncStatusRunning;
 
   try {
-    const response = await fetch(`${serverUrl}/api/foodstalls/sync?lang=${langCode}`);
+    const response = await fetch(requestUrl);
+
     if (!response.ok) {
-      throw new Error('Yêu cầu đồng bộ thất bại.');
+      const serverText = await response.text().catch(() => '');
+      throw new Error(`HTTP ${response.status} ${response.statusText} ${serverText ? '- ' + serverText : ''}`);
     }
 
-    const responseData = await response.json(); // Object containing stalls array
+    const responseData = await response.json();
     const stalls = (responseData.stalls || []).map(item => ({
       id: item.id,
       name: item.name,
@@ -566,35 +651,30 @@ async function onSync() {
       audioUrl: item.translation?.audioUrl || ''
     }));
 
-    // Clear local storage and save new
     await db.clearAll();
     await db.saveStalls(stalls);
-
-    // Reload markers
     await loadStallPins();
 
     syncStatus.style.color = '#00FF66';
     syncStatus.innerText = trans.syncStatusSuccess(stalls.length);
 
-    // Prefetch audio files so they get cached by the Service Worker
+
     prefetchAudioFiles(stalls, serverUrl);
 
   } catch (err) {
     console.error('Sync failed:', err);
     syncStatus.style.color = '#FF3333';
-    syncStatus.innerText = trans.syncStatusFailed;
+    syncStatus.innerText = `${trans.syncStatusFailed} (${err.message || err})`;
   }
 }
-
 // Fetch all audio files to populate service worker cache for offline use
 function prefetchAudioFiles(stalls, serverUrl) {
   stalls.forEach(async stall => {
     if (stall.audioUrl) {
       // Re-route audioUrl relative to serverUrl if needed
-      const fullAudioUrl = stall.audioUrl.startsWith('http') 
-        ? stall.audioUrl 
+      const fullAudioUrl = stall.audioUrl.startsWith('http')
+        ? stall.audioUrl
         : `${serverUrl}${stall.audioUrl}`;
-        
       try {
         const audioRes = await fetch(fullAudioUrl);
         if (audioRes.ok) {
@@ -611,7 +691,7 @@ function prefetchAudioFiles(stalls, serverUrl) {
 async function checkStallsProximity(userLat, userLon) {
   const stalls = await db.getStalls();
   const thresholdMeters = 20.0;
-  
+
   let nearestStall = null;
   let minDistance = Infinity;
 
@@ -625,6 +705,7 @@ async function checkStallsProximity(userLat, userLon) {
 
   if (nearestStall) {
     // Show stall card details
+    stallCard.dataset.stallId = nearestStall.id;
     stallName.innerText = nearestStall.name;
     stallAddress.innerText = nearestStall.address;
     stallDistance.innerText = `${Math.round(minDistance)}m`;
@@ -640,8 +721,8 @@ async function checkStallsProximity(userLat, userLon) {
     // Hide card if not near any stall
     const langCode = langPicker.value;
     const trans = uiTranslations[langCode] || uiTranslations.vi;
-    
     stallCard.classList.remove('visible');
+    delete stallCard.dataset.stallId;
     lastTriggeredStallId = null;
     audioPlayer.pause();
     audioPlayer.removeAttribute('src');
@@ -659,13 +740,17 @@ function onToggleAudio() {
   if (!audioPlayer.src && currentAudioUrl) {
     audioPlayer.src = currentAudioUrl;
   }
-  
+
   if (!audioPlayer.src) {
     audioStatus.innerText = trans.audioStatusNoAudio;
     return;
   }
 
   if (audioPlayer.paused) {
+    const activeStallId = getActiveStallId();
+    if (activeStallId) {
+      void recordUserAction(activeStallId, 'START_AUDIO');
+    }
     audioPlayer.play()
       .then(() => {
         updatePlayButtonState(true);
@@ -695,6 +780,190 @@ function updatePlayButtonState(isPlaying) {
   }
 }
 
+function showMenuModalMessage(message) {
+  if (!menuModal || !menuModalMessage || !menuImagesContainer) return;
+  menuImagesContainer.innerHTML = '';
+  menuModalMessage.innerText = message;
+  menuModal.style.display = 'flex';
+}
+
+function renderMenuImages(images) {
+  if (!menuImagesContainer || !menuModalMessage) return;
+  menuImagesContainer.innerHTML = '';
+  const indicators = document.getElementById('menu-carousel-indicators');
+  if (indicators) indicators.innerHTML = '';
+  if (!Array.isArray(images) || images.length === 0) {
+    menuModalMessage.innerText = 'Quán này chưa cập nhật menu.';
+    return;
+  }
+
+  menuModalMessage.innerText = '';
+  // Build slides
+  images.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'menu-image-item';
+
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = `Menu image ${idx + 1}`;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => { image.style.opacity = '0.5'; });
+
+    item.appendChild(image);
+    menuImagesContainer.appendChild(item);
+
+    // indicator
+    if (indicators) {
+      const btn = document.createElement('button');
+      btn.dataset.index = String(idx);
+      btn.addEventListener('click', () => showSlide(idx));
+      indicators.appendChild(btn);
+    }
+  });
+
+  // Initialize carousel state
+  currentCarouselIndex = 0;
+  updateCarousel();
+}
+
+async function openMenuModal(activeStallId) {
+  if (!activeStallId) {
+    showMenuModalMessage('Không tìm thấy quán hiện tại.');
+    return;
+  }
+
+  const serverUrl = serverUrlInput.value.trim().replace(/\/+$/, '');
+  const url = `${serverUrl}/api/foodstalls/${activeStallId}/menu`;
+
+  console.debug('openMenuModal fetch url', url);
+
+  showMenuModalMessage('Đang tải menu...');
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      showMenuModalMessage('Không thể tải menu. Vui lòng thử lại.');
+      console.error('Menu load failed:', errorText);
+      return;
+    }
+
+    const imageUrls = await response.json();
+    renderMenuImages(imageUrls);
+    // show modal
+    if (menuModal) menuModal.style.display = 'flex';
+    // attach nav handlers
+    attachCarouselHandlers();
+  } catch (error) {
+    showMenuModalMessage('Lỗi kết nối. Vui lòng kiểm tra mạng.');
+    console.error(error);
+  }
+}
+
+function getActiveStallId() {
+  return stallCard?.dataset?.stallId || lastTriggeredStallId || '';
+}
+
+// Carousel state & helpers
+let currentCarouselIndex = 0;
+function updateCarousel() {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  const indicators = document.querySelectorAll('.carousel-indicators button');
+  const slidesContainer = document.querySelector('.menu-slides');
+  if (!slidesContainer || slides.length === 0) return;
+  const w = slidesContainer.clientWidth;
+  slidesContainer.style.transform = `translateX(-${currentCarouselIndex * w}px)`;
+  indicators.forEach((b, i) => b.classList.toggle('active', i === currentCarouselIndex));
+}
+
+function showSlide(index) {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  if (!slides || slides.length === 0) return;
+  currentCarouselIndex = Math.max(0, Math.min(index, slides.length - 1));
+  updateCarousel();
+}
+
+function attachCarouselHandlers() {
+  const prev = document.getElementById('menu-prev');
+  const next = document.getElementById('menu-next');
+  const indicators = document.getElementById('menu-carousel-indicators');
+  if (prev) prev.onclick = () => showSlide(currentCarouselIndex - 1);
+  if (next) next.onclick = () => showSlide(currentCarouselIndex + 1);
+
+  // swipe support
+  const viewport = document.querySelector('.menu-viewport');
+  if (viewport) {
+    let startX = 0;
+    viewport.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    viewport.addEventListener('touchend', (e) => {
+      const endX = e.changedTouches[0].clientX;
+      if (endX - startX > 40) showSlide(currentCarouselIndex - 1);
+      else if (startX - endX > 40) showSlide(currentCarouselIndex + 1);
+    }, { passive: true });
+  }
+
+  // keyboard navigation when modal open
+  window.addEventListener('keydown', carouselKeyHandler);
+}
+
+function carouselKeyHandler(e) {
+  if (!menuModal || menuModal.style.display !== 'flex') return;
+  if (e.key === 'ArrowLeft') showSlide(currentCarouselIndex - 1);
+  if (e.key === 'ArrowRight') showSlide(currentCarouselIndex + 1);
+  if (e.key === 'Escape') { if (menuModal) menuModal.style.display = 'none'; }
+}
+
+async function recordUserAction(foodStallId, actionType) {
+  if (!foodStallId || !actionType) return null;
+
+  const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
+  if (!serverUrl) return null;
+
+  const token = localStorage.getItem('authToken');
+  if (!token) return null;
+
+  const coords = await new Promise(resolve => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        position => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+        () => resolve(currentCoords ? { lat: currentCoords.lat, lng: currentCoords.lon } : null),
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+      return;
+    }
+
+    resolve(currentCoords ? { lat: currentCoords.lat, lng: currentCoords.lon } : null);
+  });
+
+  if (!coords) return null;
+
+  try {
+    const response = await fetch(`${serverUrl}/api/visits/record`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        foodStallId,
+        actionType,
+        userLat: coords.lat,
+        userLng: coords.lng
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      console.warn('Visit record rejected:', errorText || response.statusText);
+      return null;
+    }
+
+    return await response.json();
+  } catch (err) {
+    console.warn('Visit record failed:', err);
+    return null;
+  }
+}
 // Play narration audio file (automatic proximity trigger)
 function playNarrationAudio(audioUrl) {
   const langCode = langPicker.value;
@@ -735,8 +1004,8 @@ function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
   const dLon = toRadians(lon2 - lon1);
 
   const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
@@ -758,7 +1027,7 @@ async function onSendChat() {
 
   const serverUrl = serverUrlInput.value.trim().replace(/\/$/, '');
   const langCode = langPicker.value;
-  
+
   if (!serverUrl) {
     addChatBubble(langCode === 'vi' ? 'Lỗi: Không tìm thấy URL Server.' : 'Error: Server URL not found.', 'ai');
     return;
@@ -810,7 +1079,7 @@ function addChatBubble(text, className) {
   bubble.className = `bubble ${className}`;
   bubble.innerText = text;
   chatLog.appendChild(bubble);
-  
+
   // Auto scroll
   chatLog.scrollTop = chatLog.scrollHeight;
   return bubble;
@@ -827,7 +1096,7 @@ function toggleSimulationWalk() {
     simIntervalId = null;
     simWalkBtn.innerText = trans.simWalkStart;
     simWalkBtn.style.background = '#10B981';
-    
+
     // Clean up user marker
     if (userLocationMarker) {
       map.removeLayer(userLocationMarker);
@@ -853,7 +1122,7 @@ function toggleSimulationWalk() {
     simWalkBtn.style.background = '#EF4444'; // Red color when active
 
     runSimStep(); // Run first step immediately
-    
+
     simIntervalId = setInterval(() => {
       simRouteIndex++;
       if (simRouteIndex >= simulatedRoute.length) {
@@ -868,15 +1137,13 @@ function runSimStep() {
   const point = simulatedRoute[simRouteIndex];
   const lat = point.lat;
   const lng = point.lng;
-  
   currentCoords = { lat, lon: lng };
   updateUserLocationMarker(lat, lng);
-  
+
   const langCode = langPicker.value;
   const trans = uiTranslations[langCode] || uiTranslations.vi;
-  
+
   gpsStatus.innerText = `${trans.gpsStatusMock(lat, lng)} (Step ${simRouteIndex + 1}/${simulatedRoute.length})`;
-  
   // Trigger proximity check
   checkStallsProximity(lat, lng);
 }

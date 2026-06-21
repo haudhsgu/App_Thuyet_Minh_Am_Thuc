@@ -2,20 +2,39 @@ const defaultServerUrl = window.location.port === '3000'
   ? `${window.location.protocol}//${window.location.hostname}:5080`
   : (window.location.port === '5080' ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:5080`);
 
-const token = localStorage.getItem('authToken');
 const role = localStorage.getItem('userRole');
 const username = localStorage.getItem('username');
+const initialToken = localStorage.getItem('authToken');
 
 // Authentication check
-if (!token || role !== 'Admin') {
+if (!initialToken || role !== 'Admin') {
   localStorage.clear();
   window.location.href = 'login.html';
 }
 
+function getAuthToken() {
+  return localStorage.getItem('authToken') || '';
+}
+
+function getAuthHeaders() {
+  return { 'Authorization': `Bearer ${getAuthToken()}` };
+}
+
+function handleAuthFailure(response) {
+  if (response.status === 401 || response.status === 403) {
+    localStorage.clear();
+    window.location.href = 'login.html';
+    return true;
+  }
+  return false;
+}
 let liveMap;
 let mapStallsGroup = L.featureGroup();
 let mapUsersGroup = L.featureGroup();
 let activeTab = 'live-tracking';
+let visitRankingData = [];
+let selectedVisitStore = null;
+let visitChart = null;
 
 // Reject modal state
 let modalActionType = ''; // 'registration' or 'submission'
@@ -33,7 +52,14 @@ const metricOnline = document.getElementById('metric-online');
 
 const registrationsTableBody = document.getElementById('registrations-table-body');
 const submissionsTableBody = document.getElementById('submissions-table-body');
+const dashboardContainer = document.getElementById('dashboard-container');
 const telemetryTableBody = document.getElementById('telemetry-table-body');
+const visitChartCanvas = document.getElementById('visit-chart-canvas');
+const visitChartTitle = document.getElementById('visit-chart-title');
+const visitChartSubtitle = document.getElementById('visit-chart-subtitle');
+const visitFromDateInput = document.getElementById('visit-from-date');
+const visitToDateInput = document.getElementById('visit-to-date');
+const visitFilterApplyBtn = document.getElementById('visit-filter-apply');
 
 const noteModal = document.getElementById('note-modal');
 const modalNoteText = document.getElementById('modal-note-text');
@@ -74,6 +100,22 @@ window.addEventListener('DOMContentLoaded', () => {
 
   modalConfirmBtn.addEventListener('click', handleModalConfirm);
 
+  initializeVisitFilters();
+  visitFilterApplyBtn.addEventListener('click', () => {
+    if (selectedVisitStore) {
+      void loadSelectedStoreChart();
+    }
+  });
+  visitFromDateInput?.addEventListener('change', () => {
+    if (selectedVisitStore) {
+      void loadSelectedStoreChart();
+    }
+  });
+  visitToDateInput?.addEventListener('change', () => {
+    if (selectedVisitStore) {
+      void loadSelectedStoreChart();
+    }
+  });
   // Initialize Map
   initLiveMap();
 
@@ -87,13 +129,15 @@ window.addEventListener('DOMContentLoaded', () => {
 // Refresh all live dashboard statistics
 async function refreshDashboardData() {
   await loadMetrics();
-  
+
   if (activeTab === 'live-tracking') {
     await loadLiveUsersOnMap();
   } else if (activeTab === 'registrations') {
     await loadRegistrations();
   } else if (activeTab === 'submissions') {
     await loadSubmissions();
+  } else if (activeTab === 'visits-dashboard') {
+    await loadDashboardStats();
   } else if (activeTab === 'telemetry') {
     await loadTelemetryLogs();
   }
@@ -103,7 +147,7 @@ async function refreshDashboardData() {
 async function loadMetrics() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/metrics`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: getAuthHeaders()
     });
 
     if (response.ok) {
@@ -111,6 +155,8 @@ async function loadMetrics() {
       metricStalls.innerText = data.totalStalls;
       metricUsers.innerText = data.totalUsers;
       metricOnline.innerText = data.activeUsers;
+    } else if (!handleAuthFailure(response)) {
+      console.error('Load metrics failed:', response.status, await response.text().catch(() => ''));
     }
   } catch (err) {
     console.error('Load metrics failed:', err);
@@ -166,7 +212,7 @@ async function loadStallsOnMap() {
 async function loadLiveUsersOnMap() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/active-users`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: getAuthHeaders()
     });
 
     if (response.ok) {
@@ -199,7 +245,7 @@ async function loadLiveUsersOnMap() {
 async function loadRegistrations() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/registrations`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: getAuthHeaders()
     });
 
     if (response.ok) {
@@ -239,7 +285,7 @@ async function loadRegistrations() {
 async function loadSubmissions() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/submissions`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: getAuthHeaders()
     });
 
     if (response.ok) {
@@ -268,11 +314,245 @@ async function loadSubmissions() {
   }
 }
 
+// Load visit dashboard stats
+async function loadDashboardStats() {
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/visits/dashboard`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.ok) {
+      const list = await response.json();
+
+      if (!list || list.length === 0) {
+        dashboardContainer.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-gray);">Chưa có lượt ghé thăm hợp lệ nào.</td></tr>`;
+        visitRankingData = [];
+        clearVisitChart('Chưa có dữ liệu để hiển thị.');
+        return;
+      }
+
+      visitRankingData = list;
+      renderVisitRanking(list);
+
+      if (!selectedVisitStore || !list.some(item => item.foodStallId === selectedVisitStore.id)) {
+        selectedVisitStore = {
+          id: list[0].foodStallId,
+          name: list[0].name,
+          address: list[0].address
+        };
+      }
+
+      syncSelectedVisitRow();
+      await loadSelectedStoreChart();
+    } else if (handleAuthFailure(response)) {
+      return;
+    } else {
+      const errorText = await response.text().catch(() => '');
+      console.error('Load dashboard stats failed:', response.status, errorText);
+      dashboardContainer.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444;">Không tải được thống kê lượt ghé thăm. ${errorText || `HTTP ${response.status}`}</td></tr>`;
+    }
+  } catch (err) {
+    console.error('Load dashboard stats failed:', err);
+    if (dashboardContainer) {
+      dashboardContainer.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #ef4444;">Lỗi tải thống kê lượt ghé thăm.</td></tr>`;
+    }
+  }
+}
+
+function initializeVisitFilters() {
+  const today = new Date();
+  const fromDate = new Date(today);
+  fromDate.setDate(today.getDate() - 9);
+
+  if (visitFromDateInput) {
+    visitFromDateInput.value = formatDateInputValue(fromDate);
+  }
+  if (visitToDateInput) {
+    visitToDateInput.value = formatDateInputValue(today);
+  }
+}
+
+function renderVisitRanking(list) {
+  dashboardContainer.innerHTML = list.map((item, index) => `
+    <tr class="visit-ranking-row" data-stall-id="${item.foodStallId}" data-stall-name="${escapeHtml(item.name)}" data-stall-address="${escapeHtml(item.address)}">
+      <td><b>#${index + 1}</b></td>
+      <td>
+        <div style="font-weight: 700; color: var(--text-white);">${item.name}</div>
+        <div style="font-size: 11px; color: var(--text-gray); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${item.address}</div>
+      </td>
+      <td style="color: var(--primary-color); font-weight: 700; text-align: center;">${item.validVisitCount}</td>
+    </tr>
+  `).join('');
+
+  dashboardContainer.querySelectorAll('.visit-ranking-row').forEach(row => {
+    row.addEventListener('click', () => {
+      selectedVisitStore = {
+        id: row.dataset.stallId,
+        name: row.dataset.stallName,
+        address: row.dataset.stallAddress
+      };
+      syncSelectedVisitRow();
+      void loadSelectedStoreChart();
+    });
+  });
+}
+
+function syncSelectedVisitRow() {
+  dashboardContainer.querySelectorAll('.visit-ranking-row').forEach(row => {
+    row.classList.toggle('active', row.dataset.stallId === selectedVisitStore?.id);
+  });
+}
+
+async function loadSelectedStoreChart() {
+  if (!selectedVisitStore) {
+    clearVisitChart('Chọn một quán trong bảng xếp hạng để xem biểu đồ.');
+    return;
+  }
+
+  const fromDate = visitFromDateInput?.value || formatDateInputValue(new Date(Date.now() - 9 * 24 * 60 * 60 * 1000));
+  const toDate = visitToDateInput?.value || formatDateInputValue(new Date());
+
+  visitChartTitle.innerText = selectedVisitStore.name;
+  visitChartSubtitle.innerText = `${selectedVisitStore.address}`;
+
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/visits/stalls/${selectedVisitStore.id}/daily?fromDate=${encodeURIComponent(fromDate)}&toDate=${encodeURIComponent(toDate)}`, {
+      headers: getAuthHeaders()
+    });
+
+    if (response.ok) {
+      const list = await response.json();
+      renderVisitChart(list, fromDate, toDate);
+    } else if (handleAuthFailure(response)) {
+      return;
+    } else {
+      const errorText = await response.text().catch(() => '');
+      clearVisitChart(`Không tải được biểu đồ: ${errorText || `HTTP ${response.status}`}`);
+    }
+  } catch (err) {
+    console.error('Load selected store chart failed:', err);
+    clearVisitChart('Lỗi tải biểu đồ thống kê.');
+  }
+}
+
+function renderVisitChart(list, fromDate, toDate) {
+  const labels = [];
+  const counts = [];
+  const dataMap = new Map((list || []).map(item => [formatDateInputValue(new Date(item.visitDate)), item.validVisitCount]));
+
+  const start = new Date(fromDate);
+  const end = new Date(toDate);
+
+  for (const cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+    const key = formatDateInputValue(cursor);
+    labels.push(key);
+    counts.push(dataMap.get(key) || 0);
+  }
+
+  if (!visitChartCanvas) return;
+
+  if (visitChart) {
+    visitChart.destroy();
+  }
+
+  visitChart = new Chart(visitChartCanvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Lượt ghé hợp lệ',
+        data: counts,
+        borderColor: '#FF7A00',
+        backgroundColor: 'rgba(255, 122, 0, 0.18)',
+        fill: true,
+        tension: 0.35,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: '#FF7A00',
+        pointBorderColor: '#FFFFFF',
+        pointBorderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: context => ` ${context.parsed.y} lượt ghé`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#94A3B8',
+            maxRotation: 0,
+            autoSkip: true
+          },
+          grid: {
+            color: 'rgba(148, 163, 184, 0.08)'
+          }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: {
+            color: '#94A3B8',
+            precision: 0
+          },
+          grid: {
+            color: 'rgba(148, 163, 184, 0.08)'
+          }
+        }
+      }
+    }
+  });
+}
+
+function clearVisitChart(message) {
+  if (visitChart) {
+    visitChart.destroy();
+    visitChart = null;
+  }
+
+  if (visitChartTitle) {
+    visitChartTitle.innerText = 'Chọn một quán để xem biểu đồ';
+  }
+  if (visitChartSubtitle) {
+    visitChartSubtitle.innerText = message;
+  }
+
+  if (visitChartCanvas) {
+    const context = visitChartCanvas.getContext('2d');
+    if (context) {
+      context.clearRect(0, 0, visitChartCanvas.width, visitChartCanvas.height);
+    }
+  }
+}
+
+function formatDateInputValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
 // Load telemetry audit logs
 async function loadTelemetryLogs() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/telemetry`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: getAuthHeaders()
     });
 
     if (response.ok) {
@@ -305,7 +585,7 @@ window.approveRegistration = async (id) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify('Đăng ký chủ quán đã được phê duyệt thành công.')
     });
@@ -327,7 +607,7 @@ window.approveSubmission = async (id) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify('Thuyết minh được duyệt thành công.')
     });
@@ -360,7 +640,7 @@ async function handleModalConfirm() {
 
   const id = modalTargetId;
   let url = '';
-  
+
   if (modalActionType === 'registration') {
     url = `${defaultServerUrl}/api/admin/registrations/${id}/reject`;
   } else if (modalActionType === 'submission') {
@@ -372,7 +652,7 @@ async function handleModalConfirm() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(note)
     });

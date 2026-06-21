@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Khu Vực Chủ Quán - Ốc Quận 4</title>
   <link rel="stylesheet" href="style.css">
-  
+
   <!-- Leaflet Map library -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -16,12 +17,13 @@
       height: auto;
       min-height: 100vh;
       background-image: radial-gradient(circle at 10% 20%, rgba(255, 122, 0, 0.05) 0%, transparent 40%),
-                        radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
+        radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
     }
     .header-panel {
       position: sticky;
       top: 0;
     }
+
     .owner-layout {
       max-width: 1200px;
       margin: 40px auto;
@@ -30,11 +32,34 @@
       grid-template-columns: 1.2fr 1fr;
       gap: 30px;
     }
+    .tab-btn {
+      background: transparent;
+      color: var(--text-gray);
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-white);
+    }
+
+    .tab-btn.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
     @media (max-width: 900px) {
       .owner-layout {
         grid-template-columns: 1fr;
       }
     }
+
     .card-panel {
       background: var(--panel-bg);
       backdrop-filter: blur(16px);
@@ -43,6 +68,7 @@
       padding: 30px;
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
     }
+
     .panel-title {
       font-size: 18px;
       font-weight: 700;
@@ -63,6 +89,7 @@
       font-size: 13px;
       color: var(--text-gray);
     }
+
     .form-control {
       width: 100%;
       background: rgba(0, 0, 0, 0.3);
@@ -75,22 +102,26 @@
       outline: none;
       transition: all 0.3s ease;
     }
+
     .form-control:focus {
       border-color: var(--primary-color);
       box-shadow: 0 0 8px rgba(255, 122, 0, 0.25);
     }
+
     #owner-map {
       height: 250px;
       border-radius: 8px;
       border: 1px solid var(--border-color);
       margin-bottom: 20px;
     }
+
     .notify-bell-container {
       position: relative;
       cursor: pointer;
       display: flex;
       align-items: center;
     }
+
     .notify-badge {
       position: absolute;
       top: -6px;
@@ -102,6 +133,7 @@
       font-size: 10px;
       font-weight: 700;
     }
+
     .notify-dropdown {
       display: none;
       position: absolute;
@@ -111,17 +143,18 @@
       background: #1e1e2e;
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
       z-index: 1000;
       max-height: 400px;
       overflow-y: auto;
     }
     .notify-item {
       padding: 12px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       font-size: 12px;
       line-height: 1.4;
     }
+
     .notify-item:last-child {
       border-bottom: none;
     }
@@ -131,6 +164,7 @@
       margin-top: 4px;
       display: block;
     }
+
     .ai-response-area {
       background: rgba(0, 0, 0, 0.2);
       border: 1px solid var(--border-color);
@@ -142,6 +176,7 @@
       line-height: 1.5;
       color: var(--text-white);
     }
+
     .ai-btn {
       background: linear-gradient(135deg, #8b5cf6, #3b82f6);
       width: 100%;
@@ -152,11 +187,13 @@
       justify-content: center;
       gap: 8px;
     }
+
     .ai-btn:hover {
       background: linear-gradient(135deg, #7c3aed, #2563eb);
     }
   </style>
 </head>
+
 <body>
 
   <!-- Header Section -->
@@ -170,7 +207,6 @@
       <div class="notify-bell-container" id="notify-bell">
         <span style="font-size: 20px;">🔔</span>
         <span class="notify-badge" id="notify-count" style="display: none;">0</span>
-        
         <div class="notify-dropdown" id="notify-list">
           <div style="padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 13px;">Thông báo</div>
           <div id="notifications-content">
@@ -180,11 +216,14 @@
       </div>
 
       <span id="owner-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray); margin-left: 10px;">Chủ quán</span>
-      
-      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px;">Đăng xuất</button>
+      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 6px;">Đăng xuất</button>
     </div>
   </header>
 
+  <div class="owner-tabs" style="max-width: 1200px; margin: 18px auto 0; padding: 0 20px;">
+    <button class="tab-btn active" data-tab="owner-main" style="padding: 10px 14px; margin-right: 8px;">🏠 Trang Chủ</button>
+    <button class="tab-btn" data-tab="owner-stats" style="padding: 10px 14px;">📊 Thống Kê</button>
+  </div>
   <main class="owner-layout">
     <!-- Left Panel: Stall Info -->
     <div class="card-panel">
@@ -257,9 +296,12 @@
         </button>
         <span id="ai-status-text" style="font-size: 11px; color: var(--text-gray);"></span>
       </div>
+  <!-- Owner stats tab (iframe) -->
+  <div class="tab-content" id="owner-stats" style="width: 100%; max-width: 1200px; margin: 20px auto; padding: 0px 20px; display: none; box-sizing: border-box;">
+    <div class="card-panel" style="padding: 0; width: 100%;">
+        <iframe id="owner-stats-iframe" src="owner-stats.html" style="width: 100%; height: 600px; border: 0; display: block; border-radius: 12px;"></iframe>
     </div>
-  </main>
-
+  </div>
   <script src="owner.js"></script>
 </body>
 </html>

@@ -74,7 +74,8 @@ body {
   padding: 2px;
 }
 
-.input-group input, .input-group select {
+.input-group input,
+.input-group select {
   background: transparent;
   border: none;
   color: var(--text-white);
@@ -138,7 +139,10 @@ body {
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: #3e3e50;
   transition: .4s;
   border-radius: 24px;
@@ -360,6 +364,176 @@ input:checked + .slider:before {
   background: #0d0d12 !important;
 }
 
+.menu-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 2000;
+  padding: 16px;
+}
+
+.menu-modal-panel {
+  width: min(620px, 100%);
+  max-height: min(85vh, 700px);
+  background: rgba(16, 24, 39, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: var(--primary-color);
+}
+
+.menu-close-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: var(--text-white);
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.menu-message {
+  color: var(--text-gray);
+  padding: 12px 20px;
+  font-size: 13px;
+}
+
+.menu-images-container {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 12px;
+  overflow-y: auto;
+  padding: 0 20px 20px;
+}
+
+.menu-image-item {
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.menu-image-item img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* Carousel styles */
+.menu-carousel {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px 18px;
+}
+
+.menu-viewport {
+  width: 100%;
+  max-width: 920px;
+  height: min(70vh, 720px);
+  overflow: hidden;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.menu-slides {
+  display: flex;
+  transition: transform 300ms ease;
+  height: 100%;
+}
+
+.menu-image-item {
+  min-width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.menu-image-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.carousel-nav {
+  position: absolute;
+  z-index: 2200;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+}
+
+.carousel-nav.prev {
+  left: 12px;
+}
+
+.carousel-nav.next {
+  right: 12px;
+}
+
+.carousel-indicators {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px 0 18px;
+}
+
+.carousel-indicators button {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+}
+
+.carousel-indicators button.active {
+  background: var(--primary-color);
+}
+
+@media (min-width: 640px) {
+  .menu-images-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .menu-images-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 /* Custom map pins */
 .custom-pin-icon {
   background: none !important;
@@ -376,8 +550,8 @@ input:checked + .slider:before {
   left: 50%;
   top: 50%;
   margin: -13px 0 0 -13px;
-  box-shadow: -3px 3px 6px rgba(0,0,0,0.5);
-  border: 1.5px solid rgba(255,255,255,0.4);
+  box-shadow: -3px 3px 6px rgba(0, 0, 0, 0.5);
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
 }
 
 .pin-marker::after {
@@ -388,7 +562,7 @@ input:checked + .slider:before {
   background: #fff;
   position: absolute;
   border-radius: 50%;
-  box-shadow: inset 1px -1px 2px rgba(0,0,0,0.3);
+  box-shadow: inset 1px -1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .user-pulse-marker {

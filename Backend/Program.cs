@@ -28,6 +28,7 @@ else
 builder.Services.AddScoped<ITranslationService, TranslationService>();
 builder.Services.AddScoped<IEdgeTtsService, EdgeTtsService>();
 builder.Services.AddScoped<IAudioGenerationPipeline, AudioGenerationPipeline>();
+builder.Services.AddScoped<IVisitService, VisitService>();
 
 // Swagger/OpenAPI setup
 builder.Services.AddOpenApi();
@@ -73,6 +74,8 @@ using (var scope = app.Services.CreateScope())
         try
         {
             _ = context.OwnerRegistrations.Any();
+            _ = context.StallVisits.Any();
+            _ = context.StallMenuImages.Any();
             dbOk = true;
         }
         catch
@@ -109,7 +112,8 @@ using (var scope = app.Services.CreateScope())
             context.SaveChanges();
             Console.WriteLine("Admin user seeded successfully (admin / admin123).");
         }
-        
+
+
         // Seed sample data for Vĩnh Khánh Street, District 4
         if (!context.FoodStalls.Any())
         {

@@ -17,16 +17,12 @@ loginForm.addEventListener('submit', async (e) => {
   try {
     const response = await fetch(`${defaultServerUrl}/api/auth/login`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
 
     if (response.ok) {
       const data = await response.json();
-      
-      // Save details to localStorage for session persistence
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('userRole', data.user.role);
       localStorage.setItem('username', data.user.username);
@@ -38,15 +34,17 @@ loginForm.addEventListener('submit', async (e) => {
         window.location.href = 'admin.html';
       } else if (data.user.role === 'Owner') {
         window.location.href = 'owner.html';
+      } else if (data.user.role === 'Public') {
+        window.location.href = 'index.html';
       } else {
         errorMessage.innerText = 'Vai trò người dùng không hợp lệ.';
       }
     } else {
-      const errorText = await response.text();
-      errorMessage.innerText = errorText || 'Đăng nhập thất bại. Vui lòng kiểm tra lại.';
+      const text = await response.text();
+      errorMessage.innerText = text || 'Đăng nhập thất bại.';
     }
   } catch (err) {
-    console.error('Login error:', err);
-    errorMessage.innerText = 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra lại mạng.';
+    console.error(err);
+    errorMessage.innerText = 'Lỗi kết nối đến máy chủ.';
   }
 });

@@ -1,6 +1,21 @@
-const defaultServerUrl = window.location.port === '3000'
-  ? `${window.location.protocol}//${window.location.hostname}:5080`
-  : (window.location.port === '5080' ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:5080`);
+const defaultServerUrl = (() => {
+  if (window.location.protocol === 'file:') {
+    return 'http://localhost:5080';
+  }
+  if (window.location.port === '5080' || window.location.port === '7089') {
+    return window.location.origin;
+  }
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '5241') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.port === '3000' || window.location.port === '4173' || window.location.port === '4200') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.protocol === 'https:') {
+    return `${window.location.protocol}//${window.location.hostname}:7089`;
+  }
+  return `${window.location.protocol}//${window.location.hostname}:5080`;
+})();
 
 const token = localStorage.getItem('authToken');
 const role = localStorage.getItem('userRole');

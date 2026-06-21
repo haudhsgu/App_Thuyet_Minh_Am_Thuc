@@ -20,14 +20,14 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Local stylesheet -->
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
   <!-- Header Section -->
   <header class="header-panel">
     <div class="title-section">
-      <h1>ỐC QUẬN 4</h1>
+      <h1 id="app-title">ỐC QUẬN 4</h1>
       <span>OFFLINE AUDIO GUIDE & AI TOUR GUIDE</span>
     </div>
 
@@ -49,17 +49,35 @@
           <option value="vi" selected>Tiếng Việt</option>
           <option value="ja">日本語</option>
           <option value="ko">한국어</option>
+          <option value="zh">中文</option>
         </select>
       </div>
 
       <button class="btn" id="sync-btn">Đồng Bộ</button>
-      <a href="login.html" class="btn" id="portal-btn" style="background: #3e3e50; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">🔑 Portal</a>
+      <button class="btn" id="show-profile-btn" style="background: #1f2937; color: #fff; margin-right:8px; display: inline-flex; align-items: center; justify-content: center;">👤 Đăng nhập / Hồ sơ</button>
     </div>
   </header>
 
   <!-- Main Content Layout -->
   <main class="main-layout">
-    <!-- Map Area (2/3 width) -->
+    <!-- Stall list on the left side -->
+    <div class="stall-panel">
+      <div class="stall-list-panel">
+        <div class="stall-list-title" id="stall-list-title">Danh sách quán</div>
+        <div class="stall-filter-label">Bộ lọc quán</div>
+        <div class="stall-search-bar">
+          <input type="text" id="stall-search-input" placeholder="Tìm quán theo tên hoặc loại món...">
+          <select id="stall-search-type">
+            <option value="name">Tên quán</option>
+            <option value="type">Loại món</option>
+          </select>
+          <button class="btn stall-search-btn" id="stall-search-btn">Tìm</button>
+        </div>
+      </div>
+      <div id="stall-list" class="stall-list"></div>
+    </div>
+
+    <!-- Map Area -->
     <div class="map-container-wrapper">
       <div id="map"></div>
 
@@ -82,7 +100,7 @@
       </div>
     </div>
 
-    <!-- AI Chat Assistant (1/3 width) -->
+    <!-- AI Chat Assistant on the right -->
     <div class="chat-panel">
       <div class="chat-header">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF7A00" stroke-width="2">
@@ -106,13 +124,40 @@
 
   <!-- Notification bar at bottom of header -->
   <div style="background: rgba(255, 122, 0, 0.1); border-bottom: 1px solid rgba(255, 122, 0, 0.2); padding: 6px 24px; font-size: 11px; color: #ff9d42; display: flex; justify-content: space-between; z-index: 999;" id="status-bar">
-    <span id="sync-status">Hệ thống sẵn sàng. Vui lòng Đồng bộ để cập nhật dữ liệu.</span>
-    <span id="gps-status">GPS: Tắt</span>
+    <span id="sync-status" data-state="ready">Hệ thống sẵn sàng. Vui lòng Đồng bộ để cập nhật dữ liệu.</span>
+    <span id="gps-status" data-state="off">GPS: Tắt</span>
   </div>
 
   <audio id="audio-player" style="display: none;"></audio>
 
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="modal" style="display:none; position:fixed; right:16px; top:72px; width:300px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.06); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:1200; padding:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong id="profile-modal-title" data-i18n="profileModalTitle">Thông tin người dùng</strong>
+      <button id="profile-close-btn" style="background:transparent; border:none; color:#fff; font-size:16px; cursor:pointer;">✕</button>
+    </div>
+    <div id="profile-content" style="font-size:13px; line-height:1.4;">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+        <img id="profile-avatar-img" src="" alt="avatar" style="width:56px; height:56px; border-radius:8px; object-fit:cover; background:#222;" />
+        <div style="flex:1;">
+          <div style="font-size:13px; color:#ccc;" data-i18n="profileAvatarLabel">Ảnh đại diện</div>
+          <input type="file" id="profile-avatar-input" accept="image/*" style="margin-top:6px; width:100%;" />
+          <button id="profile-avatar-upload-btn" class="btn" style="margin-top:6px; background:#2563eb;" data-i18n="profileUploadBtn">Tải lên</button>
+        </div>
+      </div>
+      <div><strong data-i18n="profileLabelUsername">Tên đăng nhập:</strong> <span id="profile-username">-</span></div>
+      <div><strong data-i18n="profileLabelFullname">Họ & tên:</strong> <span id="profile-fullname">-</span></div>
+      <div><strong data-i18n="profileLabelEmail">Email:</strong> <span id="profile-email">-</span></div>
+      <div><strong data-i18n="profileLabelPhone">Điện thoại:</strong> <span id="profile-phone">-</span></div>
+      <div><strong data-i18n="profileLabelRole">Vai trò:</strong> <span id="profile-role">-</span></div>
+      <div><strong data-i18n="profileLabelUserId">ID người dùng:</strong> <span id="profile-userid">-</span></div>
+      <div><strong data-i18n="profileLabelDevice">Device ID:</strong> <span id="profile-device">-</span></div>
+      <div style="margin-top:8px;"><button id="profile-logout-btn" class="btn" style="background:#ef4444;" data-i18n="profileLogoutBtn">Đăng xuất</button></div>
+    </div>
+  </div>
+
   <!-- Main controller module -->
-  <script type="module" src="app.js?v=5"></script>
+  <script src="payment-gate.js?v=1"></script>
+  <script type="module" src="app.js?v=16"></script>
 </body>
 </html>

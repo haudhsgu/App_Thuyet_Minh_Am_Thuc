@@ -17,6 +17,7 @@ namespace Backend.Data
         public DbSet<UserSession> UserSessions => Set<UserSession>();
         public DbSet<AiUsageLimit> AiUsageLimits => Set<AiUsageLimit>();
         public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

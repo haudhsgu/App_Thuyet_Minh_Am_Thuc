@@ -1,7 +1,9 @@
 using System;
+using System.Globalization;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -34,6 +36,11 @@ namespace Backend.Services
             var provider = _configuration["Translation:Provider"] ?? "Gemini";
             _logger.LogInformation("Using translation provider: {Provider} for language: {Lang}", provider, targetLanguageCode);
 
+            if (targetLanguageCode.Equals("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                return text;
+            }
+
             if (provider.Equals("DeepL", StringComparison.OrdinalIgnoreCase))
             {
                 return await TranslateWithDeepLAsync(text, targetLanguageCode);
@@ -49,8 +56,8 @@ namespace Backend.Services
             var apiKey = _configuration["DeepL:ApiKey"];
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("YOUR_DEEPL_API_KEY"))
             {
-                _logger.LogWarning("DeepL API Key is missing or placeholder. Returning original text.");
-                return text;
+                _logger.LogWarning("DeepL API Key is missing or placeholder. Returning empty translation for non-Vietnamese target language.");
+                return string.Empty;
             }
 
             // Map target language code for DeepL (expects uppercase)
@@ -92,16 +99,16 @@ namespace Backend.Services
                     translations.GetArrayLength() > 0)
                 {
                     var translatedText = translations[0].GetProperty("text").GetString()?.Trim();
-                    return translatedText ?? text;
+                    return translatedText ?? string.Empty;
                 }
 
                 _logger.LogWarning("Unexpected response format from DeepL. Response: {Response}", jsonResponse);
-                return text;
+                return string.Empty;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred during DeepL translation to {Lang}", targetLang);
-                return text;
+                return string.Empty;
             }
         }
 
@@ -110,8 +117,8 @@ namespace Backend.Services
             var apiKey = _configuration["Gemini:ApiKey"];
             if (string.IsNullOrWhiteSpace(apiKey) || apiKey.Contains("YOUR_GEMINI_API_KEY"))
             {
-                _logger.LogWarning("Gemini API Key is missing or placeholder. Returning original text.");
-                return text;
+                _logger.LogWarning("Gemini API Key is missing or placeholder. Returning empty translation for non-Vietnamese target language.");
+                return string.Empty;
             }
 
             string languageName = targetLanguageCode.ToLower() switch
@@ -119,21 +126,36 @@ namespace Backend.Services
                 "en" => "English",
                 "ja" => "Japanese",
                 "ko" => "Korean",
-                "zh" => "Chinese",
+                "zh" => "Chinese (Simplified)",
                 "fr" => "French",
                 _ => targetLanguageCode
             };
 
             int maxRetries = 3;
             int delayMs = 2000;
-            
+            string lastResponseText = null;
+            string normalizedText = text?.Trim() ?? string.Empty;
+            bool forceTranslate = false;
+
             for (int attempt = 0; attempt < maxRetries; attempt++)
             {
                 try
                 {
+                    await GeminiRateLimiter.WaitForTurnAsync();
+
                     var requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={apiKey}";
 
-                    var prompt = $"You are a professional travel and food translator. Translate the following Vietnamese text about street food stalls into {languageName}. Keep the translation natural, engaging for tourists, and preserve names of dishes if they are unique (e.g. keep 'Ốc' or explain it in parentheses). Return ONLY the translated text without any conversational intro/outro or markdown wrappers.\n\nText to translate:\n{text}";
+                    var prompt = $"You are a professional travel and food translator. Translate the following Vietnamese text about street food stalls into {languageName}. " +
+                                 "If the text is still in Vietnamese, translate it fully into the target language. " +
+                                 "Preserve proper nouns and dish names, but do NOT keep Vietnamese descriptive text unchanged. " +
+                                 "Do not mix Vietnamese prose into the answer. If you must keep proper nouns, keep only the name itself, not the surrounding Vietnamese sentence. " +
+                                 "Return ONLY the translated text in the target language without any introduction, explanation, or markdown formatting.\n\nText to translate:\n" + normalizedText;
+
+                    if (forceTranslate)
+                    {
+                        prompt = $"You are a professional travel and food translator. THIS IS A SECOND ATTEMPT. Translate the following Vietnamese text into {languageName} and do NOT return the original Vietnamese text under any circumstances. " +
+                                 "Only return the final translated text. Do not include Vietnamese sentences, notes, or explanations.\n\nText to translate:\n" + normalizedText;
+                    }
 
                     var requestBody = new
                     {
@@ -153,47 +175,152 @@ namespace Backend.Services
                     var content = new StringContent(jsonRequest, Encoding.UTF8, "application/json");
 
                     var response = await _httpClient.PostAsync(requestUrl, content);
-                    
+
                     if ((int)response.StatusCode == 429)
                     {
-                        _logger.LogWarning("Gemini API returned 429 (Too Many Requests). Retrying in {Delay}ms... (Attempt {Attempt}/{Max})", delayMs, attempt + 1, maxRetries);
-                        await Task.Delay(delayMs);
-                        delayMs *= 2; // Exponential backoff
+                        var retryDelay = GetRetryAfterDelayMs(response, delayMs);
+                        _logger.LogWarning("Gemini API returned 429 (Too Many Requests). Retrying in {Delay}ms... (Attempt {Attempt}/{Max})", retryDelay, attempt + 1, maxRetries);
+                        await Task.Delay(retryDelay);
+                        delayMs = Math.Min(retryDelay * 2, 30000);
+                        forceTranslate = true;
                         continue;
                     }
-                    
+
                     response.EnsureSuccessStatusCode();
 
                     var jsonResponse = await response.Content.ReadAsStringAsync();
                     using var doc = JsonDocument.Parse(jsonResponse);
-                    
+
                     var root = doc.RootElement;
-                    if (root.TryGetProperty("candidates", out var candidates) && 
+                    string translatedText = null;
+
+                    if (root.TryGetProperty("candidates", out var candidates) &&
                         candidates.GetArrayLength() > 0 &&
                         candidates[0].TryGetProperty("content", out var candidateContent) &&
                         candidateContent.TryGetProperty("parts", out var parts) &&
                         parts.GetArrayLength() > 0)
                     {
-                        var translatedText = parts[0].GetProperty("text").GetString()?.Trim();
-                        return translatedText ?? text;
+                        translatedText = parts[0].GetProperty("text").GetString()?.Trim();
+                    }
+                    else if (root.TryGetProperty("output", out var output) &&
+                             output.GetArrayLength() > 0 &&
+                             output[0].TryGetProperty("content", out var outputContent) &&
+                             outputContent.TryGetProperty("text", out var outputText))
+                    {
+                        translatedText = outputText.GetString()?.Trim();
                     }
 
-                    _logger.LogWarning("Unexpected response format from Gemini API. Response: {Response}", jsonResponse);
-                    return text;
+                    if (!string.IsNullOrWhiteSpace(translatedText) &&
+                        !LooksLikeUntranslatedVietnamese(text, translatedText, targetLanguageCode))
+                    {
+                        return translatedText;
+                    }
+
+                    _logger.LogWarning("Gemini returned untranslated or invalid result for language {Lang}. Response: {Response}", targetLanguageCode, jsonResponse);
+                    await Task.Delay(delayMs);
+                    delayMs *= 2;
                 }
                 catch (Exception ex)
                 {
                     if (attempt == maxRetries - 1)
                     {
                         _logger.LogError(ex, "Error occurred during Gemini translation to {Lang} after all retries.", targetLanguageCode);
-                        return text;
+                        return string.Empty;
                     }
+
                     _logger.LogWarning(ex, "Error during Gemini translation (Attempt {Attempt}/{Max}). Retrying in {Delay}ms...", attempt + 1, maxRetries, delayMs);
                     await Task.Delay(delayMs);
                     delayMs *= 2;
                 }
             }
-            return text;
+
+            if (IsDeepLConfigured())
+            {
+                _logger.LogWarning("Gemini translation failed after {MaxRetries} attempts. Falling back to DeepL for {Lang}.", maxRetries, targetLanguageCode);
+                return await TranslateWithDeepLAsync(text, targetLanguageCode);
+            }
+
+            return string.Empty;
+        }
+
+        private bool IsDeepLConfigured()
+        {
+            var deepLKey = _configuration["DeepL:ApiKey"];
+            return !string.IsNullOrWhiteSpace(deepLKey) && !deepLKey.Contains("YOUR_DEEPL_API_KEY", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private int GetRetryAfterDelayMs(HttpResponseMessage response, int defaultDelayMs)
+        {
+            if (response.Headers.TryGetValues("Retry-After", out var values))
+            {
+                var retryValue = values.FirstOrDefault();
+                if (int.TryParse(retryValue, out var seconds))
+                {
+                    return Math.Max(seconds * 1000, defaultDelayMs);
+                }
+            }
+
+            return defaultDelayMs;
+        }
+
+        private bool LooksLikeUntranslatedVietnamese(string sourceText, string translatedText, string targetLanguageCode)
+        {
+            if (string.IsNullOrWhiteSpace(translatedText))
+            {
+                return true;
+            }
+
+            if (targetLanguageCode.Equals("vi", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var sourceNormalized = NormalizeForComparison(sourceText);
+            var translatedNormalized = NormalizeForComparison(translatedText);
+
+            if (string.IsNullOrWhiteSpace(sourceNormalized) || string.IsNullOrWhiteSpace(translatedNormalized))
+            {
+                return false;
+            }
+
+            if (string.Equals(sourceNormalized, translatedNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (translatedNormalized.Contains(sourceNormalized, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private string NormalizeForComparison(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
+            var normalized = input.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+
+            foreach (var ch in normalized)
+            {
+                var category = CharUnicodeInfo.GetUnicodeCategory(ch);
+                if (category == UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                if (char.IsLetterOrDigit(ch))
+                {
+                    sb.Append(ch == 'đ' ? 'd' : ch);
+                }
+            }
+
+            return sb.ToString();
         }
     }
 }

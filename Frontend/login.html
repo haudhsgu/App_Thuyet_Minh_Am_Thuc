@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng Nhập - Hệ thống Quản trị & Chủ Quán</title>
+  <title>Đăng Nhập - ỐC QUẬN 4</title>
   <link rel="stylesheet" href="style.css">
   <style>
     body {
@@ -66,12 +66,32 @@
       border-color: var(--primary-color);
       box-shadow: 0 0 8px rgba(255, 122, 0, 0.25);
     }
-    .login-btn {
+    .login-btn,
+    .register-nav-btn {
       width: 100%;
       padding: 14px;
       font-size: 14px;
-      margin-top: 10px;
     }
+
+    .register-nav-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .register-nav-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: #3e3e50;
+    }
+
+    .register-nav-btn:hover {
+      text-decoration: none;
+    }
+
     .error-msg {
       color: #ff3333;
       font-size: 13px;
@@ -79,24 +99,11 @@
       margin-top: 15px;
       min-height: 20px;
     }
-    .register-link {
-      text-align: center;
-      margin-top: 20px;
-      font-size: 13px;
-      color: var(--text-gray);
-    }
-    .register-link a {
-      color: var(--primary-color);
-      text-decoration: none;
-      font-weight: 600;
-    }
-    .register-link a:hover {
-      text-decoration: underline;
-    }
+
     .home-link {
       display: block;
       text-align: center;
-      margin-top: 15px;
+      margin-top: 18px;
       font-size: 12px;
       color: var(--text-gray);
       text-decoration: none;
@@ -104,11 +111,10 @@
   </style>
 </head>
 <body>
-
   <div class="login-container">
     <div class="login-header">
       <h2>ỐC QUẬN 4</h2>
-      <p>Cổng Quản trị & Chủ Cửa hàng Thuyết Minh</p>
+      <p>Đăng nhập để sử dụng bản đồ, AI trợ lý và hồ sơ người dùng.</p>
     </div>
 
     <form id="login-form">
@@ -123,12 +129,12 @@
       </div>
 
       <button type="submit" class="btn login-btn">Đăng Nhập</button>
-
       <div class="error-msg" id="error-message"></div>
     </form>
 
-    <div class="register-link">
-      Bạn là chủ quán mới? <a href="register-owner.html">Đăng ký ngay</a>
+    <div class="register-nav-group">
+      <a href="register-owner.html" class="btn register-nav-btn">Đăng ký cho quán</a>
+      <a href="register-user.html" class="btn register-nav-btn">Đăng ký cho khách</a>
     </div>
 
     <a href="index.html" class="home-link">← Quay về Trang chủ Bản đồ</a>

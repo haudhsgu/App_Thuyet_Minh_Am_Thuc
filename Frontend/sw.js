@@ -1,8 +1,8 @@
-const CACHE_NAME = 'oc-quan4-cache-v5';
+const CACHE_NAME = 'oc-quan4-cache-v12';
 const ASSETS_TO_CACHE = [
   './index.html',
-  './style.css',
-  './app.js?v=5',
+  './style.css?v=2',
+  './app.js?v=14',
   './db.js',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
@@ -35,12 +35,37 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Fetch Event
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   // Exclude API calls from service worker caching (they always go to backend)
   if (url.pathname.includes('/api/')) {
+    return;
+  }
+
+  const isAppShellRequest = [
+    '/index.html',
+    '/app.js',
+    '/style.css',
+    '/db.js',
+    '/manifest.json'
+  ].some(path => url.pathname === path || url.pathname.endsWith(path));
+
+  if (isAppShellRequest) {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        const cloned = networkResponse.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+        return networkResponse;
+      }).catch(() => caches.match(event.request))
+    );
     return;
   }
 
@@ -51,7 +76,6 @@ self.addEventListener('fetch', event => {
       }
 
       return fetch(event.request).then(networkResponse => {
-        // Cache Leaflet images, OpenStreetMap tiles, and downloaded MP3 audio files
         if (
           event.request.method === 'GET' &&
           (url.hostname.includes('tile.openstreetmap.org') || 

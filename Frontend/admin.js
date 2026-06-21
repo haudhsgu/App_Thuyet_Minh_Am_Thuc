@@ -1,6 +1,21 @@
-const defaultServerUrl = window.location.port === '3000'
-  ? `${window.location.protocol}//${window.location.hostname}:5080`
-  : (window.location.port === '5080' ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:5080`);
+const defaultServerUrl = (() => {
+  if (window.location.protocol === 'file:') {
+    return 'http://localhost:5080';
+  }
+  if (window.location.port === '5080' || window.location.port === '7089') {
+    return window.location.origin;
+  }
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '5241') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.port === '3000' || window.location.port === '4173' || window.location.port === '4200') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.protocol === 'https:') {
+    return `${window.location.protocol}//${window.location.hostname}:7089`;
+  }
+  return `${window.location.protocol}//${window.location.hostname}:5080`;
+})();
 
 const token = localStorage.getItem('authToken');
 const role = localStorage.getItem('userRole');
@@ -17,7 +32,7 @@ let mapStallsGroup = L.featureGroup();
 let mapUsersGroup = L.featureGroup();
 let activeTab = 'live-tracking';
 
-// Reject modal state
+// Admin UI state
 let modalActionType = ''; // 'registration' or 'submission'
 let modalTargetId = null;
 
@@ -94,6 +109,8 @@ async function refreshDashboardData() {
     await loadRegistrations();
   } else if (activeTab === 'submissions') {
     await loadSubmissions();
+  } else if (activeTab === 'stall-visits') {
+    await loadStallVisitSummary();
   } else if (activeTab === 'telemetry') {
     await loadTelemetryLogs();
   }
@@ -294,6 +311,38 @@ async function loadTelemetryLogs() {
     }
   } catch (err) {
     console.error('Load telemetry failed:', err);
+  }
+}
+
+async function loadStallVisitSummary() {
+  const stallVisitsTableBody = document.getElementById('stall-visits-table-body');
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/visit-summary`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (!data || data.length === 0) {
+        stallVisitsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-gray);">Chưa có dữ liệu ghé quán.</td></tr>`;
+        return;
+      }
+
+      stallVisitsTableBody.innerHTML = data.map(item => `
+        <tr>
+          <td><b>${item.stallName}</b></td>
+          <td>${item.visitCount}</td>
+          <td>${item.uniqueVisitors}</td>
+          <td>${new Date(item.lastVisit).toLocaleString()}</td>
+          <td>${item.actionType}</td>
+        </tr>
+      `).join('');
+    } else {
+      stallVisitsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #FF3333;">Không thể tải dữ liệu ghé quán.</td></tr>`;
+    }
+  } catch (err) {
+    console.error('Load stall visits failed:', err);
+    stallVisitsTableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #FF3333;">Lỗi tải dữ liệu ghé quán.</td></tr>`;
   }
 }
 

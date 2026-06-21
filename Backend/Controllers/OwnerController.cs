@@ -109,13 +109,16 @@ namespace Backend.Controllers
 
             var token = authHeader.Substring("Bearer ".Length).Trim();
             var session = await _dbContext.UserSessions
-                .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Token == token && s.ExpiresAt > DateTime.UtcNow);
 
-            if (session?.User?.Role != "Owner")
+            if (session == null)
                 return null;
 
-            return session.User;
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == session.UserId);
+            if (user?.Role != "Owner")
+                return null;
+
+            return user;
         }
     }
 }

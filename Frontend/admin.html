@@ -280,6 +280,7 @@
       <button class="tab-btn active" data-tab="live-tracking">📍 Giám Sát Người Dùng</button>
       <button class="tab-btn" data-tab="registrations">📝 Duyệt Đăng Ký Chủ Quán</button>
       <button class="tab-btn" data-tab="submissions">✍ Duyệt Thuyết Minh</button>
+      <button class="tab-btn" data-tab="stall-visits">📈 Ghé Quán</button>
       <button class="tab-btn" data-tab="telemetry">📋 Nhật Ký Hệ Thống</button>
     </div>
 
@@ -339,7 +340,29 @@
       </div>
     </div>
 
-    <!-- 4. Telemetry Audit Logs -->
+    <!-- 4. Stall Visit Summary -->
+    <div class="tab-content" id="stall-visits">
+      <div class="admin-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Quán</th>
+              <th>Số lần ghé</th>
+              <th>Người dùng khác nhau</th>
+              <th>Lần ghé cuối</th>
+              <th>Loại hành động</th>
+            </tr>
+          </thead>
+          <tbody id="stall-visits-table-body">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-gray);">Đang tải dữ liệu ghé quán...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 5. Telemetry Audit Logs -->
     <div class="tab-content" id="telemetry">
       <div class="admin-table-wrapper">
         <table>

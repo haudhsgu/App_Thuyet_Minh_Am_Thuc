@@ -28,7 +28,6 @@ function handleAuthFailure(response) {
   }
   return false;
 }
-
 let liveMap;
 let mapStallsGroup = L.featureGroup();
 let mapUsersGroup = L.featureGroup();
@@ -117,7 +116,6 @@ window.addEventListener('DOMContentLoaded', () => {
       void loadSelectedStoreChart();
     }
   });
-
   // Initialize Map
   initLiveMap();
 
@@ -550,7 +548,6 @@ function escapeHtml(value) {
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 }
-
 // Load telemetry audit logs
 async function loadTelemetryLogs() {
   try {

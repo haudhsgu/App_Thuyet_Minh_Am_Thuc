@@ -113,6 +113,7 @@ using (var scope = app.Services.CreateScope())
             Console.WriteLine("Admin user seeded successfully (admin / admin123).");
         }
 
+
         // Seed sample data for Vĩnh Khánh Street, District 4
         if (!context.FoodStalls.Any())
         {

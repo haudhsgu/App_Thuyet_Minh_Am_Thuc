@@ -63,7 +63,6 @@ let defaultServerUrl;
 
 // Set default server URL in initApp() after DOM ready
 
-
 // Translation dictionary for Frontend UI elements
 const uiTranslations = {
   vi: {
@@ -209,7 +208,6 @@ function updateUiLanguage(lang) {
   const trans = uiTranslations[lang] || uiTranslations.vi;
   const portalBtn = document.getElementById('portal-btn');
   if (portalBtn) portalBtn.innerText = trans.portalBtn || "🔑 Portal";
-
   // Update static texts
   const subtitleEl = document.querySelector('.title-section span');
   if (subtitleEl) subtitleEl.innerText = trans.subtitle;
@@ -225,7 +223,6 @@ function updateUiLanguage(lang) {
 
   if (chatSendBtn) chatSendBtn.innerText = trans.chatSendBtn;
   if (chatInput) chatInput.placeholder = trans.chatPlaceholder;
-
   // Update welcome bubble in chat log if present
   if (chatLog) {
     const welcomeBubble = chatLog.querySelector('.bubble.ai:first-child');
@@ -245,10 +242,8 @@ function updateUiLanguage(lang) {
   if (simWalkBtn) {
     simWalkBtn.innerText = simIntervalId ? trans.simWalkStop : trans.simWalkStart;
   }
-
   // Update audio control elements
   updatePlayButtonState(false);
-
   // Update statuses safely
   if (syncStatus) {
     const currentSyncText = syncStatus.innerText || '';
@@ -324,7 +319,6 @@ async function initApp() {
     serverUrlInput: !!serverUrlInput,
     langPicker: !!langPicker
   });
-
   // Register Service Worker
   if ('serviceWorker' in navigator) {
     try {
@@ -562,9 +556,7 @@ function onGpsToggle(e) {
         ja: "モバイルデバイスで実際のGPSを使用するには、セキュアなHTTPS接続が必要です。\\n\\n「歩行シミュレート」機能を使用するか、HTTPS（例：ngrok/localtunnel）経由でアクセスしてください。",
         ko: "모바일 기기에서 실제 GPS를 사용하려면 안전한 HTTPS 연결이 필요합니다.\\n\\n'보행 시뮬레이션' 기능을 사용하거나 HTTPS(예: ngrok/localtunnel)를 구성해 주세요."
       };
-
       alert(httpsWarning[langCode] || httpsWarning.vi);
-
       gpsSwitch.checked = false;
       isGpsMockActive = false;
       gpsStatus.innerText = trans.gpsStatusOff;
@@ -636,7 +628,6 @@ async function onSync() {
 
   const requestUrl = `${serverUrl}/api/foodstalls/sync?lang=${langCode}`;
   console.log('Sync request URL:', requestUrl);
-
   syncStatus.style.color = '#FF7A00';
   syncStatus.innerText = trans.syncStatusRunning;
 
@@ -667,6 +658,7 @@ async function onSync() {
     syncStatus.style.color = '#00FF66';
     syncStatus.innerText = trans.syncStatusSuccess(stalls.length);
 
+
     prefetchAudioFiles(stalls, serverUrl);
 
   } catch (err) {
@@ -683,7 +675,6 @@ function prefetchAudioFiles(stalls, serverUrl) {
       const fullAudioUrl = stall.audioUrl.startsWith('http')
         ? stall.audioUrl
         : `${serverUrl}${stall.audioUrl}`;
-
       try {
         const audioRes = await fetch(fullAudioUrl);
         if (audioRes.ok) {
@@ -730,7 +721,6 @@ async function checkStallsProximity(userLat, userLon) {
     // Hide card if not near any stall
     const langCode = langPicker.value;
     const trans = uiTranslations[langCode] || uiTranslations.vi;
-
     stallCard.classList.remove('visible');
     delete stallCard.dataset.stallId;
     lastTriggeredStallId = null;
@@ -761,7 +751,6 @@ function onToggleAudio() {
     if (activeStallId) {
       void recordUserAction(activeStallId, 'START_AUDIO');
     }
-
     audioPlayer.play()
       .then(() => {
         updatePlayButtonState(true);
@@ -975,7 +964,6 @@ async function recordUserAction(foodStallId, actionType) {
     return null;
   }
 }
-
 // Play narration audio file (automatic proximity trigger)
 function playNarrationAudio(audioUrl) {
   const langCode = langPicker.value;
@@ -1149,7 +1137,6 @@ function runSimStep() {
   const point = simulatedRoute[simRouteIndex];
   const lat = point.lat;
   const lng = point.lng;
-
   currentCoords = { lat, lon: lng };
   updateUserLocationMarker(lat, lng);
 
@@ -1157,7 +1144,6 @@ function runSimStep() {
   const trans = uiTranslations[langCode] || uiTranslations.vi;
 
   gpsStatus.innerText = `${trans.gpsStatusMock(lat, lng)} (Step ${simRouteIndex + 1}/${simulatedRoute.length})`;
-
   // Trigger proximity check
   checkStallsProximity(lat, lng);
 }

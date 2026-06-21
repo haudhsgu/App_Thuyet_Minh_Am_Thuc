@@ -65,7 +65,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   aiEnhanceBtn.addEventListener('click', enhanceDescription);
   aiApplyBtn.addEventListener('click', applyAiDescription);
-
   // Tab switching (Owner page): mirror admin tab behavior
   const tabButtons = document.querySelectorAll('.owner-tabs .tab-btn');
   const ownerMainContent = document.querySelector('main.owner-layout');
@@ -78,7 +77,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
       const tab = btn.getAttribute('data-tab');
       if (tab === 'owner-main') {
-        if (ownerMainContent) ownerMainContent.style.display = '';
+        if (ownerMainContent) ownerMainContent.style.display = 'grid';
         if (ownerStatsContent) ownerStatsContent.style.display = 'none';
       } else if (tab === 'owner-stats') {
         if (ownerMainContent) ownerMainContent.style.display = 'none';
@@ -91,30 +90,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
       }
     });
-// Xóa toàn bộ đoạn openStatsBtn handler cũ
-// Thay bằng tab switching chung cho tất cả .tab-btn
-document.querySelectorAll('.owner-tabs .tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    // Bỏ active tất cả
-    document.querySelectorAll('.owner-tabs .tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-
-    const tab = btn.getAttribute('data-tab');
-
-    // Ẩn/hiện content tương ứng
-    const ownerMain = document.querySelector('main.owner-layout');
-    const ownerStats = document.getElementById('owner-stats');
-
-    if (tab === 'owner-main') {
-      if (ownerMain) ownerMain.style.display = 'grid';
-      if (ownerStats) ownerStats.style.display = 'none';
-    } else if (tab === 'owner-stats') {
-      if (ownerMain) ownerMain.style.display = 'none';
-      if (ownerStats) ownerStats.style.display = 'block';
-    }
-  });
-});
-    // header stats button removed; use tab buttons below
   });
 });
 
@@ -367,5 +342,4 @@ function applyAiDescription() {
     aiStatusText.innerText = 'Đã áp dụng mô tả AI vào bài viết gốc!';
   }
 }
-
 // owner chart functions removed — stats page moved to owner-stats.html

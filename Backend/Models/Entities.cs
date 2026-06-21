@@ -66,7 +66,6 @@ namespace Backend.Models
         public double Longitude { get; set; }
 
         public ICollection<StallMenuImage> MenuImages { get; set; } = new List<StallMenuImage>();
-
         [Required]
         public string OriginalHistory { get; set; } = string.Empty; // Vietnamese source description
 

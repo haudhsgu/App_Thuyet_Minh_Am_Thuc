@@ -33,7 +33,6 @@ namespace Backend.Data
             modelBuilder.Entity<Localization>()
                 .HasIndex(l => new { l.FoodStallId, l.LanguageCode })
                 .IsUnique();
-
             modelBuilder.Entity<StallVisit>()
                 .HasIndex(v => new { v.UserId, v.FoodStallId, v.CreatedAt });
         }

@@ -22,9 +22,21 @@ namespace Backend.Models
         [Required]
         public string Role { get; set; } = "Public"; // "Public", "Owner", "Admin"
 
+        public string FullName { get; set; } = string.Empty;
+
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        public string Email { get; set; } = string.Empty;
+        public string AvatarUrl { get; set; } = string.Empty;
+
+        public bool HasPaidAccess { get; set; } = false;
+
+        public DateTime? PaymentActivatedAt { get; set; }
+
         public bool IsVerified { get; set; } = true; // Owner starts as false until approved
 
         public bool IsPoiOwnerVerified { get; set; } = false;
+        public bool HasPaid { get; set; } = false;
 
         public DateTime LastActive { get; set; } = DateTime.UtcNow;
     }
@@ -66,6 +78,7 @@ namespace Backend.Models
         public double Longitude { get; set; }
 
         public ICollection<StallMenuImage> MenuImages { get; set; } = new List<StallMenuImage>();
+
         [Required]
         public string OriginalHistory { get; set; } = string.Empty; // Vietnamese source description
 
@@ -140,6 +153,28 @@ namespace Backend.Models
         public string Token { get; set; } = string.Empty;
 
         public DateTime ExpiresAt { get; set; }
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class PaymentTransaction
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string TransactionId { get; set; } = string.Empty;
+
+        [Required]
+        public string ResponseCode { get; set; } = string.Empty;
+
+        public bool IsSuccess { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

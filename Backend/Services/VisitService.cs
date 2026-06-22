@@ -180,11 +180,14 @@ namespace Backend.Services
             var startDate = DateTime.SpecifyKind(fromDate.Date, DateTimeKind.Utc);
             var endExclusive = DateTime.SpecifyKind(toDate.Date.AddDays(1), DateTimeKind.Utc);
 
-            return await _dbContext.StallVisits
+            var queryResult = await _dbContext.StallVisits
                 .Where(v => v.IsValidVisit
                     && v.FoodStallId == foodStallId
                     && v.CreatedAt >= startDate
                     && v.CreatedAt < endExclusive)
+                .ToListAsync();
+
+            return queryResult
                 .GroupBy(v => v.CreatedAt.Date)
                 .Select(group => new DashboardDailyVisitDto
                 {
@@ -192,7 +195,7 @@ namespace Backend.Services
                     ValidVisitCount = group.Count()
                 })
                 .OrderBy(item => item.VisitDate)
-                .ToListAsync();
+                .ToList();
         }
 
         private static double ToRadians(double degrees)

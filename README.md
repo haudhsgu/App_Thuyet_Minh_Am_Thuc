@@ -50,11 +50,20 @@ Dự án bản đồ và trợ lý tour ẩm thực đường phố tại con đ
   },
   "Gemini": {
     "ApiKey": "YOUR_GEMINI_API_KEY"
+  },
+  "VNPAY": {
+    "Url": "YOUR_VNPAY_GATEWAY_URL",
+    "TmnCode": "YOUR_VNPAY_TMN_CODE",
+    "HashSecret": "YOUR_VNPAY_HASH_SECRET",
+    "ReturnUrl": "http://localhost:5080/api/payments/return",
+    "AmountVnd": 10000
   }
 }
 ```
 
 > 💡 *Thay thế `YOUR_POSTGRES_HOST`, `YOUR_DB_NAME`, `YOUR_DB_USER`, `YOUR_DB_PASSWORD` bằng thông tin database PostgreSQL của bạn, và nhập API key lấy từ [Google AI Studio](https://aistudio.google.com/) vào mục `ApiKey`.*
+>
+> 💡 *Chức năng thanh toán VNPAY cần các khóa `VNPAY:*` ở trên. `ReturnUrl` phải trỏ về backend, ví dụ `http://localhost:5080/api/payments/return`, để VNPAY có thể gọi lại sau khi thanh toán. Sau khi thanh toán thành công, trang kết quả sẽ có nút quay lại ứng dụng và tự động chuyển về trang chính sau vài giây. Nếu chạy local ở môi trường Development mà chưa cấu hình các khóa này, backend sẽ chuyển sang luồng thanh toán mô phỏng để bạn vẫn kiểm thử được ứng dụng; khi có cấu hình thật, hệ thống sẽ dùng VNPAY thật.*
 
 ### 3. Khởi Động Backend
 Hệ thống tích hợp tính năng **Auto-Migration & Database Seeding**. Khi khởi chạy lần đầu tiên, hệ thống sẽ tự tạo cấu trúc bảng trên database PostgreSQL và nạp sẵn tài khoản quản trị mặc định:
@@ -62,13 +71,39 @@ Hệ thống tích hợp tính năng **Auto-Migration & Database Seeding**. Khi 
 
 Mở Terminal tại thư mục `Backend/` và chạy lệnh:
 ```bash
+cd App_Thuyet_Minh_Am_Thuc/Backend
 dotnet run --urls "http://0.0.0.0:5080"
 ```
 *Backend sẽ lắng nghe tại cổng `http://localhost:5080`.*
 
-### 4. Khởi Động Frontend
+### 4. Regenerate toàn bộ bản dịch và thuyết minh
+Nếu bạn muốn sinh lại toàn bộ bản dịch và audio cho mọi quán, gọi endpoint admin sau:
+
+```bash
+POST http://localhost:5080/api/admin/localizations/generate-all
+```
+
+Yêu cầu header:
+* `Authorization: Bearer <admin-token>`
+
+Ví dụ sử dụng PowerShell:
+```powershell
+cd App_Thuyet_Minh_Am_Thuc/Backend
+.\generate-all-localizations.ps1 -AdminToken "<admin-token>"
+```
+
+Hoặc dùng curl:
+```bash
+curl -X POST "http://localhost:5080/api/admin/localizations/generate-all" \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d "{}"
+```
+
+### 5. Khởi Động Frontend
 Mở một cửa sổ Terminal mới tại thư mục `Frontend/` và chạy lệnh để mở server static:
 ```bash
+cd App_Thuyet_Minh_Am_Thuc/Frontend
 npx http-server -p 3000
 ```
 *Frontend sẽ chạy tại cổng `http://localhost:3000`.*

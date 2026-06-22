@@ -61,8 +61,17 @@ namespace Backend.Services
             // Step 2: Compare Hash of Source Text & check if MP3 exists
             if (existingLoc != null && existingLoc.TextHash == sourceHash && FileExistsOnServer(existingLoc.AudioUrl))
             {
-                _logger.LogInformation("Source hash matches and MP3 exists. Reusing cached translation and audio for stall '{Name}' in language '{Lang}'", stall.Name, targetLanguageCode);
-                return existingLoc;
+                var needsRegeneration = targetLanguageCode != "vi" &&
+                    (string.IsNullOrWhiteSpace(existingLoc.TranslatedText) ||
+                     ExistingLocalizationLooksUntranslated(existingLoc.TranslatedText, stall.OriginalHistory));
+
+                if (!needsRegeneration)
+                {
+                    _logger.LogInformation("Source hash matches and MP3 exists. Reusing cached translation and audio for stall '{Name}' in language '{Lang}'", stall.Name, targetLanguageCode);
+                    return existingLoc;
+                }
+
+                _logger.LogWarning("Existing localization for stall '{Name}' language '{Lang}' appears to be untranslated Vietnamese. Regenerating translation and audio.", stall.Name, targetLanguageCode);
             }
 
             // Step 3: Translate via AI (Gemini)
@@ -70,6 +79,30 @@ namespace Backend.Services
             if (targetLanguageCode != "vi")
             {
                 translatedText = await _translationService.TranslateAsync(stall.OriginalHistory, targetLanguageCode);
+            }
+
+            if (targetLanguageCode != "vi" && string.IsNullOrWhiteSpace(translatedText))
+            {
+                _logger.LogWarning("No valid translation produced for stall '{Name}' in language '{Lang}'. Returning empty localization.", stall.Name, targetLanguageCode);
+                if (existingLoc == null)
+                {
+                    return new Localization
+                    {
+                        Id = Guid.NewGuid(),
+                        FoodStallId = foodStallId,
+                        LanguageCode = targetLanguageCode,
+                        TranslatedText = string.Empty,
+                        TextHash = sourceHash,
+                        AudioUrl = string.Empty
+                    };
+                }
+
+                existingLoc.TranslatedText = string.Empty;
+                existingLoc.TextHash = sourceHash;
+                existingLoc.AudioUrl = string.Empty;
+                _dbContext.Entry(existingLoc).State = EntityState.Modified;
+                await _dbContext.SaveChangesAsync();
+                return existingLoc;
             }
 
             // Step 4: Synthesize Audio (Edge-TTS)
@@ -112,7 +145,32 @@ namespace Backend.Services
                 _dbContext.Entry(existingLoc).State = EntityState.Modified;
             }
 
-            await _dbContext.SaveChangesAsync();
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogWarning(ex, "Failed to save localization for stall '{Name}' language '{Lang}'. Resolving potential duplicate entry.", stall.Name, targetLanguageCode);
+
+                if (existingLoc != null)
+                {
+                    _dbContext.Entry(existingLoc).State = EntityState.Detached;
+                }
+
+                existingLoc = await _dbContext.Localizations
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(l => l.FoodStallId == foodStallId && l.LanguageCode == targetLanguageCode);
+
+                if (existingLoc != null)
+                {
+                    _logger.LogInformation("Loaded existing localization after duplicate save conflict for stall '{Name}' language '{Lang}'.", stall.Name, targetLanguageCode);
+                    return existingLoc;
+                }
+
+                throw;
+            }
+
             _logger.LogInformation("Upserted localization and saved audio at URL '{Url}' for stall '{Name}'", audioUrl, stall.Name);
 
             return existingLoc;
@@ -128,6 +186,50 @@ namespace Backend.Services
             {
                 sb.Append(b.ToString("x2"));
             }
+            return sb.ToString();
+        }
+
+        private bool ExistingLocalizationLooksUntranslated(string translatedText, string originalText)
+        {
+            if (string.IsNullOrWhiteSpace(translatedText) || string.IsNullOrWhiteSpace(originalText))
+                return true;
+
+            var normalizedOriginal = NormalizeForComparison(originalText);
+            var normalizedTranslated = NormalizeForComparison(translatedText);
+
+            if (string.Equals(normalizedOriginal, normalizedTranslated, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (normalizedTranslated.Contains(normalizedOriginal, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return false;
+        }
+
+        private string NormalizeForComparison(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input))
+            {
+                return string.Empty;
+            }
+
+            var normalized = input.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+            var sb = new StringBuilder(normalized.Length);
+
+            foreach (var ch in normalized)
+            {
+                var category = char.GetUnicodeCategory(ch);
+                if (category == System.Globalization.UnicodeCategory.NonSpacingMark)
+                {
+                    continue;
+                }
+
+                if (char.IsLetterOrDigit(ch))
+                {
+                    sb.Append(ch == 'đ' ? 'd' : ch);
+                }
+            }
+
             return sb.ToString();
         }
 

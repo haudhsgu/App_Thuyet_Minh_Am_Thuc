@@ -24,12 +24,9 @@ namespace Backend.Services
                 byte[] saltBytes = new byte[SaltSize];
                 rng.GetBytes(saltBytes);
 
-                using (var pbkdf2 = new Rfc2898DeriveBytes(password, saltBytes, Iterations, HashAlgorithmName.SHA256))
-                {
-                    byte[] hashBytes = pbkdf2.GetBytes(HashSize);
-                    hashHex = Convert.ToHexString(hashBytes);
-                    saltHex = Convert.ToHexString(saltBytes);
-                }
+                byte[] hashBytes = Rfc2898DeriveBytes.Pbkdf2(password, saltBytes, Iterations, HashAlgorithmName.SHA256, HashSize);
+                hashHex = Convert.ToHexString(hashBytes);
+                saltHex = Convert.ToHexString(saltBytes);
             }
         }
 
@@ -40,11 +37,8 @@ namespace Backend.Services
                 byte[] saltBytes = Convert.FromHexString(saltHex);
                 byte[] hashBytes = Convert.FromHexString(hashHex);
 
-                using (var pbkdf2 = new Rfc2898DeriveBytes(password, saltBytes, Iterations, HashAlgorithmName.SHA256))
-                {
-                    byte[] computedHash = pbkdf2.GetBytes(HashSize);
-                    return CryptographicOperations.FixedTimeEquals(computedHash, hashBytes);
-                }
+                byte[] computedHash = Rfc2898DeriveBytes.Pbkdf2(password, saltBytes, Iterations, HashAlgorithmName.SHA256, HashSize);
+                return CryptographicOperations.FixedTimeEquals(computedHash, hashBytes);
             }
             catch
             {

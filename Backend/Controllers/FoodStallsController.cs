@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Backend.Data;
 using Backend.Models;
 using Backend.Services;
@@ -16,44 +18,76 @@ namespace Backend.Controllers
     {
         private readonly AppDbContext _dbContext;
         private readonly IAudioGenerationPipeline _audioPipeline;
+        private readonly IStallMetadataTranslationService _metadataTranslation;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ILogger<FoodStallsController> _logger;
 
         // Supported languages for offline packages
-        private static readonly string[] SupportedLanguages = { "vi", "en", "ja", "ko" };
+        private static readonly string[] SupportedLanguages = { "vi", "en", "ja", "ko", "zh" };
 
-        public FoodStallsController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
+        public FoodStallsController(
+            AppDbContext dbContext,
+            IAudioGenerationPipeline audioPipeline,
+            IStallMetadataTranslationService metadataTranslation,
+            IServiceScopeFactory scopeFactory,
+            ILogger<FoodStallsController> logger)
         {
             _dbContext = dbContext;
             _audioPipeline = audioPipeline;
+            _metadataTranslation = metadataTranslation;
+            _scopeFactory = scopeFactory;
+            _logger = logger;
         }
 
         // 1. Synchronize Endpoint for Mobile Clients
+        // Returns cached localizations immediately; missing translations are generated in background.
         [HttpGet("sync")]
         public async Task<IActionResult> Sync([FromQuery] string lang = "en")
         {
             lang = lang.Trim().ToLower();
+            if (!SupportedLanguages.Contains(lang))
+            {
+                lang = "en";
+            }
 
-            var stalls = await _dbContext.FoodStalls.ToListAsync();
+            var stalls = await _dbContext.FoodStalls.AsNoTracking().ToListAsync();
+            var stallIds = stalls.Select(s => s.Id).ToList();
+
+            var localizations = await _dbContext.Localizations
+                .AsNoTracking()
+                .Where(l => l.LanguageCode == lang && stallIds.Contains(l.FoodStallId))
+                .ToListAsync();
+
+            var localizationByStall = localizations.ToDictionary(l => l.FoodStallId);
             var result = new List<object>();
+            var missingStallIds = new List<Guid>();
 
             foreach (var stall in stalls)
             {
-                // Ensure the localization and audio exist for this language
-                Localization? loc = null;
-                try
+                string translatedText;
+                string audioUrl;
+
+                if (lang == "vi")
                 {
-                    loc = await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                    translatedText = stall.OriginalHistory;
+                    audioUrl = localizationByStall.TryGetValue(stall.Id, out var viLoc)
+                        ? viLoc.AudioUrl
+                        : string.Empty;
                 }
-                catch (Exception)
+                else if (localizationByStall.TryGetValue(stall.Id, out var cachedLoc) &&
+                         !string.IsNullOrWhiteSpace(cachedLoc.TranslatedText))
                 {
-                    // Fallback to original text if pipeline fails
-                    loc = new Localization
-                    {
-                        FoodStallId = stall.Id,
-                        LanguageCode = lang,
-                        TranslatedText = stall.OriginalHistory,
-                        AudioUrl = string.Empty
-                    };
+                    translatedText = cachedLoc.TranslatedText;
+                    audioUrl = cachedLoc.AudioUrl ?? string.Empty;
                 }
+                else
+                {
+                    translatedText = string.Empty;
+                    audioUrl = string.Empty;
+                    missingStallIds.Add(stall.Id);
+                }
+
+                var metadata = _metadataTranslation.GetCached(stall.Id, stall.Name, stall.Address, lang);
 
                 result.Add(new
                 {
@@ -65,13 +99,57 @@ namespace Backend.Controllers
                     stall.OriginalHistory,
                     Translation = new
                     {
-                        loc.TranslatedText,
-                        loc.AudioUrl
+                        translatedText,
+                        audioUrl,
+                        translatedName = metadata.Name,
+                        translatedAddress = metadata.Address
                     }
                 });
             }
 
-            return Ok(new { stalls = result });
+            if (missingStallIds.Count > 0)
+            {
+                _ = Task.Run(() => GenerateMissingLocalizationsInBackgroundAsync(missingStallIds, lang));
+            }
+
+            return Ok(new
+            {
+                stalls = result,
+                pendingTranslations = missingStallIds.Count
+            });
+        }
+
+        private async Task GenerateMissingLocalizationsInBackgroundAsync(List<Guid> stallIds, string lang)
+        {
+            _logger.LogInformation("Background translation started for {Count} stalls in language {Lang}", stallIds.Count, lang);
+
+            foreach (var stallId in stallIds)
+            {
+                try
+                {
+                    using var scope = _scopeFactory.CreateScope();
+                    var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                    var metadataTranslation = scope.ServiceProvider.GetRequiredService<IStallMetadataTranslationService>();
+                    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                    await pipeline.ProcessStallLocalizationAsync(stallId, lang);
+
+                    var stall = await dbContext.FoodStalls.AsNoTracking()
+                        .FirstOrDefaultAsync(s => s.Id == stallId);
+                    if (stall != null)
+                    {
+                        await metadataTranslation.WarmCacheAsync(stallId, stall.Name, stall.Address, lang);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Background localization failed for stall {StallId} lang {Lang}", stallId, lang);
+                }
+
+                await Task.Delay(4500);
+            }
+
+            _logger.LogInformation("Background translation finished for language {Lang}", lang);
         }
 
         // 2. GET All (Admin/Web view)

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Backend.Services;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Backend.Controllers
 {
@@ -53,6 +54,38 @@ namespace Backend.Controllers
                     Error = ex.Message,
                     Details = ex.ToString()
                 });
+            }
+        }
+        [HttpGet("generate-missing")]
+        public async Task<IActionResult> GenerateMissing()
+        {
+            try
+            {
+                var dbContext = HttpContext.RequestServices.GetRequiredService<Backend.Data.AppDbContext>();
+                var audioPipeline = HttpContext.RequestServices.GetRequiredService<IAudioGenerationPipeline>();
+
+                var stalls = System.Linq.Enumerable.ToList(dbContext.FoodStalls);
+                var languages = new[] { "en", "ja", "ko", "zh" };
+                int generatedCount = 0;
+
+                foreach (var stall in stalls)
+                {
+                    foreach (var lang in languages)
+                    {
+                        var loc = System.Linq.Enumerable.FirstOrDefault(dbContext.Localizations, l => l.FoodStallId == stall.Id && l.LanguageCode == lang);
+                        if (loc == null || string.IsNullOrEmpty(loc.AudioUrl))
+                        {
+                            await audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            generatedCount++;
+                        }
+                    }
+                }
+
+                return Ok(new { message = $"Generated {generatedCount} missing localizations." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = ex.Message, stack = ex.StackTrace });
             }
         }
     }

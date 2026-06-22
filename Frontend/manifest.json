@@ -1,5 +1,5 @@
-{
-  "short_name": "OcQuan4",
+﻿{
+  "short_name": "TrackingFoods",
   "name": "Ốc Quận 4 - Audio Guide & AI Assistant",
   "icons": [
     {
@@ -14,3 +14,4 @@
   "display": "standalone",
   "orientation": "portrait"
 }
+

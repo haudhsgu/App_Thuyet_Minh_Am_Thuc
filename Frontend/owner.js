@@ -1,15 +1,202 @@
-const defaultServerUrl = window.location.port === '3000'
-  ? `${window.location.protocol}//${window.location.hostname}:5080`
-  : (window.location.port === '5080' ? window.location.origin : `${window.location.protocol}//${window.location.hostname}:5080`);
+const defaultServerUrl = (() => {
+  if (window.location.protocol === 'file:') {
+    return 'http://localhost:5080';
+  }
+  if (window.location.port === '5080' || window.location.port === '7089') {
+    return window.location.origin;
+  }
+  if ((window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && window.location.port === '5241') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.port === '3000' || window.location.port === '4173' || window.location.port === '4200') {
+    return `${window.location.protocol}//${window.location.hostname}:5080`;
+  }
+  if (window.location.protocol === 'https:') {
+    return `${window.location.protocol}//${window.location.hostname}:7089`;
+  }
+  return `${window.location.protocol}//${window.location.hostname}:5080`;
+})();
 
-const token = localStorage.getItem('authToken');
+let token = localStorage.getItem('authToken');
 const role = localStorage.getItem('userRole');
 const username = localStorage.getItem('username');
 
+// --- Menu Management Variables ---
+let menuGrid;
+let menuUploadBtn;
+let menuUploadInput;
+let menuUploadStatus;
+
 // Authentication check
-if (!token || role !== 'Owner') {
-  localStorage.clear();
-  window.location.href = 'login.html';
+window.addEventListener('DOMContentLoaded', () => {
+  const currentToken = localStorage.getItem('authToken');
+  const currentRole = localStorage.getItem('userRole');
+  
+  if (currentToken && currentRole === 'Owner') {
+    token = currentToken;
+    loadStallDetails();
+
+    // Bind Menu Management Elements
+    menuGrid = document.getElementById('owner-menu-grid');
+    menuUploadBtn = document.getElementById('menu-upload-btn');
+    menuUploadInput = document.getElementById('menu-upload-input');
+    menuUploadStatus = document.getElementById('menu-upload-status');
+
+    if (menuUploadBtn && menuUploadInput) {
+      menuUploadBtn.addEventListener('click', () => {
+        if (!currentStall) {
+          alert("Vui lòng đợi tải thông tin quán ăn.");
+          return;
+        }
+        menuUploadInput.click();
+      });
+
+      menuUploadInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+          alert('Vui lòng chọn file ảnh (JPG, PNG, WEBP).');
+          menuUploadInput.value = '';
+          return;
+        }
+
+        if (file.size > 5 * 1024 * 1024) { // 5MB limit
+          alert('Dung lượng ảnh tối đa là 5MB.');
+          menuUploadInput.value = '';
+          return;
+        }
+
+        try {
+          menuUploadStatus.innerText = 'Đang tải lên...';
+          menuUploadBtn.disabled = true;
+
+          const formData = new FormData();
+          formData.append('file', file);
+
+          const response = await fetch(`${defaultServerUrl}/api/owner/pois/${currentStall.id}/menu`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+
+          if (response.ok) {
+            menuUploadStatus.innerText = 'Tải lên thành công!';
+            menuUploadStatus.style.color = '#10B981';
+            setTimeout(() => menuUploadStatus.innerText = '', 3000);
+            await loadStallDetails();
+          } else {
+            const errText = await response.text();
+            menuUploadStatus.innerText = 'Lỗi tải lên.';
+            menuUploadStatus.style.color = '#ef4444';
+            console.error('Upload failed:', errText);
+          }
+        } catch (err) {
+          console.error('Error uploading menu image:', err);
+          menuUploadStatus.innerText = 'Lỗi mạng.';
+          menuUploadStatus.style.color = '#ef4444';
+        } finally {
+          menuUploadBtn.disabled = false;
+          menuUploadInput.value = '';
+        }
+      });
+    }
+
+  } else {
+    // If not owner, clear and go to login
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('userRole');
+    window.location.href = 'login.html';
+  }
+});
+
+function renderOwnerMenuImages(images) {
+  if (!menuGrid) return;
+  menuGrid.innerHTML = '';
+  
+  if (!images || images.length === 0) {
+    menuGrid.innerHTML = '<div style="grid-column: 1 / -1; color: var(--text-gray); font-size: 13px; font-style: italic;">Chưa có ảnh Menu nào.</div>';
+    return;
+  }
+
+  images.forEach(img => {
+    let displayUrl = img.imageUrl;
+    if (displayUrl && !displayUrl.startsWith('http')) {
+      if (displayUrl.startsWith('/menus')) {
+        displayUrl = `${defaultServerUrl}/images${displayUrl}`;
+      } else {
+        displayUrl = `${defaultServerUrl}/images/${displayUrl.replace(/^\/+/, '')}`;
+      }
+    }
+
+    const div = document.createElement('div');
+    div.style.position = 'relative';
+    div.style.paddingTop = '100%';
+    div.style.borderRadius = '8px';
+    div.style.overflow = 'hidden';
+    div.style.border = '1px solid var(--border-color)';
+    div.style.background = '#2c2c3e';
+
+    const imgEl = document.createElement('img');
+    imgEl.src = displayUrl;
+    imgEl.style.position = 'absolute';
+    imgEl.style.top = '0';
+    imgEl.style.left = '0';
+    imgEl.style.width = '100%';
+    imgEl.style.height = '100%';
+    imgEl.style.objectFit = 'cover';
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.innerHTML = '✕';
+    deleteBtn.title = "Xóa ảnh này";
+    deleteBtn.style.position = 'absolute';
+    deleteBtn.style.top = '4px';
+    deleteBtn.style.right = '4px';
+    deleteBtn.style.background = 'rgba(239, 68, 68, 0.9)';
+    deleteBtn.style.color = '#fff';
+    deleteBtn.style.border = 'none';
+    deleteBtn.style.borderRadius = '50%';
+    deleteBtn.style.width = '24px';
+    deleteBtn.style.height = '24px';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.style.display = 'flex';
+    deleteBtn.style.alignItems = 'center';
+    deleteBtn.style.justifyContent = 'center';
+    deleteBtn.style.fontSize = '12px';
+
+    deleteBtn.onclick = async () => {
+      if (confirm('Bạn có chắc chắn muốn xóa ảnh này?')) {
+        await deleteMenuImage(img.id);
+      }
+    };
+
+    div.appendChild(imgEl);
+    div.appendChild(deleteBtn);
+    menuGrid.appendChild(div);
+  });
+}
+
+async function deleteMenuImage(imageId) {
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/owner/pois/${currentStall.id}/menu/${imageId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.ok) {
+      // Reload the stall details to refresh images
+      await loadStallDetails();
+    } else {
+      alert('Xóa ảnh thất bại. Vui lòng thử lại.');
+    }
+  } catch (err) {
+    console.error('Error deleting image:', err);
+    alert('Lỗi mạng khi xóa ảnh.');
+  }
 }
 
 let ownerMap;
@@ -85,7 +272,6 @@ window.addEventListener('DOMContentLoaded', () => {
         // refresh iframe if present
         const iframe = document.getElementById('owner-stats-iframe');
         if (iframe) {
-          // reload to refresh data
           iframe.contentWindow?.location?.reload?.();
         }
       }
@@ -118,7 +304,8 @@ async function loadStallDetails() {
 
         // Init Map
         initOwnerMap(currentStall.latitude, currentStall.longitude);
-        // Map initialized for owner
+        // Render Menu Images
+        renderOwnerMenuImages(currentStall.menuImages || []);
       } else {
         stallStatusSpan.innerText = 'Chưa có quán ăn';
         stallStatusSpan.style.background = '#3e3e50';
@@ -146,6 +333,14 @@ function updateStatusBadge(isVerified, note) {
 
 // Initialize map select/drag coordinates
 function initOwnerMap(lat, lng) {
+  if (ownerMap) {
+    ownerMap.setView([lat, lng], 16);
+    if (stallMarker) {
+      stallMarker.setLatLng([lat, lng]);
+    }
+    return;
+  }
+
   ownerMap = L.map('owner-map', {
     zoomControl: true,
     attributionControl: false

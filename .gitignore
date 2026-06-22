@@ -32,3 +32,15 @@ Desktop.ini
 
 # Log files
 *.log
+ 
+# Database
+Backend/*.db
+Backend/*.db-shm
+Backend/*.db-wal
+
+# Generated Files
+Backend/wwwroot/audio/*.mp3
+Backend/wwwroot/avatars/*
+!Backend/wwwroot/avatars/.gitkeep
+Backend/wwwroot/images/*
+!Backend/wwwroot/images/.gitkeep

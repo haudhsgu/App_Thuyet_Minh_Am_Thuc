@@ -45,8 +45,8 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Exclude API calls from service worker caching (they always go to backend)
-  if (url.pathname.includes('/api/')) {
+  // Exclude API calls and MP3 files from service worker caching
+  if (url.pathname.includes('/api/') || url.pathname.endsWith('.mp3')) {
     return;
   }
 
@@ -80,7 +80,6 @@ self.addEventListener('fetch', event => {
           event.request.method === 'GET' &&
           (url.hostname.includes('tile.openstreetmap.org') || 
            url.pathname.includes('/tile/') ||
-           url.pathname.endsWith('.mp3') ||
            url.pathname.includes('/images/'))
         ) {
           return caches.open(CACHE_NAME).then(cache => {
@@ -91,6 +90,7 @@ self.addEventListener('fetch', event => {
         return networkResponse;
       }).catch(err => {
         console.warn('Network request failed, resource not cached offline:', url.href);
+        return new Response('Network error occurred', { status: 408 });
       });
     })
   );

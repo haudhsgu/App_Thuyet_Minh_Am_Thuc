@@ -1,16 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+KR:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
 
 :root {
-  --bg-color: #0d0d12;
-  --panel-bg: rgba(30, 30, 46, 0.75);
-  --border-color: rgba(255, 255, 255, 0.08);
-  --primary-color: #FF7A00;
-  --primary-hover: #e06c00;
-  --text-white: #ffffff;
-  --text-gray: #a0a0b0;
-  --chat-user-bg: #FF7A00;
-  --chat-ai-bg: #222230;
+  --bg-color: #000000;
+  --panel-bg: rgba(28, 28, 30, 0.65);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --primary-color: #FF9500;
+  --primary-hover: #e08300;
+  --text-white: rgba(255, 255, 255, 0.95);
+  --text-gray: rgba(235, 235, 245, 0.6);
+  --chat-user-bg: #FF9500;
+  --chat-ai-bg: rgba(28, 28, 30, 0.85);
 }
 
 * {
@@ -20,7 +20,7 @@
 }
 
 body {
-  font-family: 'Outfit', 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', sans-serif;
   background-color: var(--bg-color);
   color: var(--text-white);
   height: 100vh;
@@ -32,21 +32,21 @@ body {
 }
 
 html[lang="ja"] body {
-  font-family: 'Noto Sans JP', 'Outfit', sans-serif;
+  font-family: 'Noto Sans JP', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 html[lang="ko"] body {
-  font-family: 'Noto Sans KR', 'Outfit', sans-serif;
+  font-family: 'Noto Sans KR', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 html[lang="zh"] body {
-  font-family: 'Noto Sans SC', 'Outfit', sans-serif;
+  font-family: 'Noto Sans SC', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Header & Configuration Panel */
 .header-panel {
   background: var(--panel-bg);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--border-color);
   padding: 16px 24px;
   display: flex;
@@ -83,7 +83,7 @@ html[lang="zh"] body {
   align-items: center;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 2px;
 }
 
@@ -110,7 +110,7 @@ html[lang="zh"] body {
   background: var(--primary-color);
   color: var(--text-white);
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 20px;
   font-size: 13px;
   font-weight: 600;
@@ -121,11 +121,11 @@ html[lang="zh"] body {
 
 .btn:hover {
   background: var(--primary-hover);
-  transform: translateY(-1px);
+  transform: scale(1.02); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
 }
 
 .btn:active {
-  transform: translateY(0);
+  transform: scale(0.97);
 }
 
 .gps-toggle {
@@ -198,7 +198,7 @@ input:checked + .slider:before {
   display: flex;
   flex-direction: column;
   background: var(--panel-bg);
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
   overflow: hidden;
   height: 100%;
@@ -218,7 +218,7 @@ input:checked + .slider:before {
 .map-container-wrapper {
   position: relative;
   background: var(--panel-bg);
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
   overflow: hidden;
   height: 100%;
@@ -236,18 +236,18 @@ input:checked + .slider:before {
   left: 16px;
   right: 16px;
   background: rgba(30, 30, 46, 0.85);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 18px;
   z-index: 1000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
   transform: translateY(120%);
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .active-stall-card.visible {
-  transform: translateY(0);
+  transform: scale(0.97);
 }
 
 .card-header {
@@ -268,7 +268,7 @@ input:checked + .slider:before {
   color: var(--text-gray);
   background: rgba(0, 0, 0, 0.3);
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 16px;
   border: 1px solid var(--border-color);
 }
 
@@ -289,8 +289,8 @@ input:checked + .slider:before {
 /* Chat Assistant Panel */
 .chat-panel {
   background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  border-radius: 12px;
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  border-radius: 16px;
   border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
@@ -368,7 +368,7 @@ input:checked + .slider:before {
 .stall-item {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 12px;
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease;
@@ -377,14 +377,14 @@ input:checked + .slider:before {
 .stall-item {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 12px;
   cursor: pointer;
   transition: transform 0.2s ease, background 0.2s ease;
 }
 
 .stall-item:hover {
-  transform: translateY(-1px);
+  transform: scale(1.02); box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
   background: rgba(255, 255, 255, 0.1);
 }
 
@@ -433,7 +433,7 @@ input:checked + .slider:before {
 
 .bubble {
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 16px;
   font-size: 13px;
   line-height: 1.45;
   max-width: 85%;
@@ -476,7 +476,7 @@ input:checked + .slider:before {
   flex: 1;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border-color);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 14px;
   color: var(--text-white);
   font-size: 13px;
@@ -541,4 +541,369 @@ input:checked + .slider:before {
   border-radius: 50%;
   border: 2px solid white;
   box-shadow: 0 0 8px #007aff;
+}
+
+/* --- Menu Modal CSS --- */
+.menu-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
+
+.menu-modal-panel {
+  background: #1e1e2e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  width: 90vw;
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.menu-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #fff;
+}
+
+.menu-close-btn {
+  background: transparent;
+  border: none;
+  color: #a0a0b0;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.menu-close-btn:hover {
+  color: #ff7a00;
+}
+
+.menu-message {
+  text-align: center;
+  padding: 20px;
+  color: #a0a0b0;
+  font-size: 14px;
+}
+
+.menu-carousel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  min-height: 300px;
+}
+
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.carousel-nav:hover {
+  background: #ff7a00;
+}
+
+.carousel-nav.prev { left: 10px; }
+.carousel-nav.next { right: 10px; }
+
+.menu-viewport {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.menu-slides {
+  display: flex;
+  height: 100%;
+  transition: transform 0.3s ease-in-out;
+}
+
+.menu-image-item {
+  flex: 0 0 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
+}
+
+.menu-image-item img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+.carousel-indicators {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  gap: 8px;
+  background: #1e1e2e;
+}
+
+.carousel-indicators button {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.carousel-indicators button.active {
+  background: #ff7a00;
+}
+
+
+/* --- Splash Intro Animation --- */
+.splash-intro {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background: #000;
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  transition: opacity 0.8s ease, visibility 0.8s;
+}
+.water-drop {
+  position: absolute;
+  top: -50px;
+  width: 20px; height: 20px;
+  background: #FF9500;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  animation: dropFall 0.8s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+}
+@keyframes dropFall {
+  0% { top: -50px; transform: rotate(-45deg) scale(1); }
+  90% { top: 50%; transform: rotate(-45deg) scale(0.9) translateY(-10px); }
+  100% { top: 50%; transform: rotate(-45deg) scale(0); opacity: 0; }
+}
+.ripple-effect {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 2px; height: 2px;
+  background: transparent;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.6);
+  opacity: 0;
+  animation: rippleExpand 1s ease-out 0.8s forwards;
+}
+@keyframes rippleExpand {
+  0% { opacity: 1; box-shadow: 0 0 0 0 rgba(255, 149, 0, 0.6), 0 0 0 0 rgba(255, 149, 0, 0.4); }
+  100% { opacity: 0; box-shadow: 0 0 0 100vw rgba(255, 149, 0, 0), 0 0 0 120vw rgba(255, 149, 0, 0); }
+}
+.splash-logo {
+  position: absolute;
+  opacity: 0;
+  transform: scale(0.5);
+  animation: logoMorph 1s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.9s forwards;
+}
+.splash-logo h1 {
+  color: #FF9500;
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-shadow: 0 4px 20px rgba(255, 149, 0, 0.4);
+}
+@keyframes logoMorph {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ==============================================================
+   MOBILE PWA UI REDESIGN (Bottom Nav, Bottom Sheets, FABs)
+   ============================================================== */
+
+/* Hidden by default on Desktop */
+.mobile-bottom-nav {
+  display: none;
+}
+.mobile-fabs-container {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* Hide Desktop Header */
+  .header-panel {
+    display: none !important;
+  }
+
+  /* Make Main Layout take full screen (minus safe area for nav) */
+  .main-layout {
+    height: 100vh; /* Will be overridden by bottom nav padding */
+    height: 100dvh;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 80px); /* Leave space for bottom nav */
+  }
+
+  /* Fix map to take full available space */
+  .map-container-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: calc(100dvh - 65px - env(safe-area-inset-bottom));
+    z-index: 10;
+  }
+  #map {
+    height: 100%;
+  }
+
+  /* Bottom Navigation Bar */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: calc(65px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    backdrop-filter: saturate(180%) blur(24px);
+    border-top: 1px solid var(--border-color);
+    z-index: 1000;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-gray);
+    flex: 1;
+    height: 100%;
+    cursor: pointer;
+    transition: color 0.2s;
+  }
+
+  .nav-item.active {
+    color: var(--primary-color);
+  }
+
+  .nav-icon {
+    font-size: 22px;
+    margin-bottom: 2px;
+    filter: grayscale(100%) opacity(0.7);
+    transition: filter 0.2s, transform 0.2s;
+  }
+
+  .nav-item.active .nav-icon {
+    filter: grayscale(0%) opacity(1);
+    transform: scale(1.1);
+  }
+
+  .nav-label {
+    font-size: 10px;
+    font-weight: 500;
+  }
+
+  /* Mobile FABs (Floating Action Buttons) */
+  .mobile-fabs-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: fixed;
+    right: 16px;
+    top: 80px; /* Below status bar */
+    z-index: 500;
+  }
+  .fab-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  /* Bottom Sheets for Panels */
+  .stall-panel, .chat-panel {
+    position: fixed;
+    bottom: calc(65px + env(safe-area-inset-bottom));
+    left: 0;
+    width: 100vw;
+    height: 60vh;
+    border-radius: 20px 20px 0 0;
+    transform: translateY(120%);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1);
+    z-index: 900;
+    border-top: 1px solid var(--border-color);
+    box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
+    background: var(--panel-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(30px);
+    backdrop-filter: saturate(180%) blur(30px);
+  }
+
+  /* Show state for panels */
+  .stall-panel.mobile-active, .chat-panel.mobile-active {
+    transform: translateY(0);
+  }
+
+  /* Active Stall Card as Bottom Sheet */
+  .active-stall-card {
+    position: fixed !important;
+    bottom: calc(75px + env(safe-area-inset-bottom));
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    transform: translateY(150%) scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+    border-radius: 20px;
+    z-index: 800; /* Above map, below nav */
+  }
+
+  .active-stall-card[style*="display: block"] {
+    display: block !important;
+    transform: translateY(0) scale(1);
+  }
 }

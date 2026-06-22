@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Ốc Quận 4 - Audio Guide & AI Assistant</title>
+  <title>TrackingFoods - Audio Guide & AI Assistant</title>
   
   <!-- PWA Metadata -->
   <link rel="manifest" href="manifest.json">
   <link rel="icon" href="data:;base64,iVBORw0KGgo=">
-  <meta name="theme-color" content="#FF7A00">
+  <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="OcQuan4">
+  <meta name="apple-mobile-web-app-title" content="TrackingFoods">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/857/857681.png">
@@ -20,14 +20,24 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Local stylesheet -->
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
+
+  <!-- Splash Screen Intro -->
+  <div id="splash-intro" class="splash-intro">
+    <canvas id="particle-canvas" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;"></canvas>
+    <div class="water-drop"></div>
+    <div class="ripple-effect"></div>
+    <div class="splash-logo">
+      <h1>TrackingFoods</h1>
+    </div>
+  </div>
 
   <!-- Header Section -->
   <header class="header-panel">
     <div class="title-section">
-      <h1 id="app-title">ỐC QUẬN 4</h1>
+      <h1 id="app-title">TrackingFoods</h1>
       <span>OFFLINE AUDIO GUIDE & AI TOUR GUIDE</span>
     </div>
 
@@ -91,9 +101,15 @@
         <div class="description" id="stall-description">
           Đang tải thuyết minh...
         </div>
-        <div class="audio-control-bar" style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
+        <div class="audio-control-bar" style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" id="view-menu-btn" style="padding: 6px 14px; font-size: 12px; background: #10B981; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <span>☰</span> <span>Xem Menu</span>
+          </button>
           <button class="btn" id="play-audio-btn" style="padding: 6px 14px; font-size: 12px; background: #FF7A00; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
             <span id="play-btn-icon">▶</span> <span id="play-btn-text">Phát Thuyết Minh</span>
+          </button>
+          <button class="btn" id="directions-btn" style="padding: 6px 14px; font-size: 12px; background: #3b82f6; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+            <span>📍</span> <span data-i18n="directionsBtn">Chỉ Đường</span>
           </button>
           <span id="audio-status" style="font-size: 11px; color: var(--text-gray);">Sẵn sàng</span>
         </div>
@@ -130,6 +146,51 @@
 
   <audio id="audio-player" style="display: none;"></audio>
 
+  <!-- Mobile Bottom Navigation -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <div class="nav-item active" data-view="map">
+      <span class="nav-icon">🗺️</span>
+      <span class="nav-label">Bản đồ</span>
+    </div>
+    <div class="nav-item" data-view="list">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">Danh sách</span>
+    </div>
+    <div class="nav-item" data-view="ai">
+      <span class="nav-icon">🤖</span>
+      <span class="nav-label">Trợ lý AI</span>
+    </div>
+    <div class="nav-item" id="nav-profile-btn" data-view="profile">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Hồ sơ</span>
+    </div>
+  </nav>
+
+  <!-- Mobile FABs Container -->
+  <div class="mobile-fabs-container" id="mobile-fabs-container">
+    <button class="btn fab-btn" id="mobile-gps-btn">🌍</button>
+    <button class="btn fab-btn" id="mobile-sync-btn">🔄</button>
+  </div>
+
+  <!-- Menu Modal -->
+  <div class="menu-modal" id="menu-modal" role="dialog" aria-modal="true" aria-labelledby="menu-modal-title">
+    <div class="menu-modal-panel">
+      <div class="menu-header">
+        <h3 id="menu-modal-title">Menu quán</h3>
+        <button class="menu-close-btn" id="menu-modal-close" type="button">Đóng</button>
+      </div>
+      <div class="menu-message" id="menu-modal-message">Đang tải menu...</div>
+      <div class="menu-carousel" id="menu-carousel">
+        <button class="carousel-nav prev" id="menu-prev" aria-label="Previous">‹</button>
+        <div class="menu-viewport">
+          <div class="menu-slides" id="menu-images-container"></div>
+        </div>
+        <button class="carousel-nav next" id="menu-next" aria-label="Next">›</button>
+      </div>
+      <div class="carousel-indicators" id="menu-carousel-indicators" aria-hidden="false"></div>
+    </div>
+  </div>
+
   <!-- Profile Modal -->
   <div id="profile-modal" class="modal" style="display:none; position:fixed; right:16px; top:72px; width:300px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.06); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:1200; padding:12px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
@@ -152,12 +213,18 @@
       <div><strong data-i18n="profileLabelRole">Vai trò:</strong> <span id="profile-role">-</span></div>
       <div><strong data-i18n="profileLabelUserId">ID người dùng:</strong> <span id="profile-userid">-</span></div>
       <div><strong data-i18n="profileLabelDevice">Device ID:</strong> <span id="profile-device">-</span></div>
-      <div style="margin-top:8px;"><button id="profile-logout-btn" class="btn" style="background:#ef4444;" data-i18n="profileLogoutBtn">Đăng xuất</button></div>
+      <div style="margin-top:12px; display:flex; gap:8px;">
+        <button id="profile-logout-btn" class="btn" style="background:#ef4444; flex:1;" data-i18n="profileLogoutBtn">Đăng xuất</button>
+      </div>
     </div>
   </div>
 
   <!-- Main controller module -->
   <script src="payment-gate.js?v=1"></script>
   <script type="module" src="app.js?v=16"></script>
+
+  <script src="particles.js"></script>
 </body>
 </html>
+
+

@@ -43,7 +43,7 @@ namespace Backend.Controllers
         }
 
         [HttpPost("create")]
-        public async Task<IActionResult> Create()
+        public async Task<IActionResult> CreatePaymentUrl([FromQuery] string? returnUrl = null)
         {
             var user = await GetCurrentUserAsync();
             if (user == null)
@@ -65,7 +65,7 @@ namespace Backend.Controllers
             try
             {
                 var paymentAmountVnd = GetPaymentAmountVnd();
-                var paymentUrl = BuildPaymentUrl(user, paymentAmountVnd);
+                var paymentUrl = BuildPaymentUrl(user, paymentAmountVnd, returnUrl);
                 return Ok(new
                 {
                     requiresPayment = true,
@@ -129,7 +129,7 @@ namespace Backend.Controllers
         }
 
         [HttpGet("return")]
-        public async Task<IActionResult> Return()
+        public async Task<IActionResult> Return([FromQuery] string? clientReturnUrl = null)
         {
             var query = Request.Query;
             var isSignatureValid = VerifySignature(query);
@@ -155,11 +155,20 @@ namespace Backend.Controllers
             }
 
             var success = responseCode == "00" && transactionStatus == "00";
-            var message = success
-                ? "Thanh toán thành công. Bạn có thể quay lại ứng dụng để dùng các chức năng."
-                : "Thanh toán chưa hoàn tất hoặc đã bị hủy.";
+            var redirectUrl = !string.IsNullOrWhiteSpace(clientReturnUrl) ? clientReturnUrl : GetAppReturnUrl();
 
-            return Content(BuildHtmlResponse(message, success ? GetAppReturnUrl() : string.Empty), "text/html; charset=utf-8");
+            // Always redirect back to the frontend.
+            // We append the VNPAY response code so the frontend can optionally show a toast if it wants.
+            if (redirectUrl.Contains("?"))
+            {
+                redirectUrl += $"&vnp_ResponseCode={responseCode}";
+            }
+            else
+            {
+                redirectUrl += $"?vnp_ResponseCode={responseCode}";
+            }
+
+            return Redirect(redirectUrl);
         }
 
         private async Task<User?> GetCurrentUserAsync()
@@ -216,7 +225,7 @@ namespace Backend.Controllers
             return Math.Max(1000, amount);
         }
 
-        private string BuildPaymentUrl(User user, int amountVnd)
+        private string BuildPaymentUrl(User user, int amountVnd, string? clientReturnUrl = null)
         {
             var baseUrl = GetRequiredSetting("VNPAY_URL", "Vnpay:Url");
             var tmnCode = GetRequiredSetting("VNPAY_TMN_CODE", "Vnpay:TmnCode");
@@ -224,6 +233,11 @@ namespace Backend.Controllers
             var returnUrl = _configuration["VNPAY_RETURN_URL"]
                 ?? _configuration["Vnpay:ReturnUrl"]
                 ?? $"{Request.Scheme}://{Request.Host}/api/payments/return";
+
+            if (!string.IsNullOrWhiteSpace(clientReturnUrl))
+            {
+                returnUrl = returnUrl + (returnUrl.Contains("?") ? "&" : "?") + "clientReturnUrl=" + System.Net.WebUtility.UrlEncode(clientReturnUrl);
+            }
 
             var txnRef = $"{user.Id:N}{DateTime.UtcNow:yyyyMMddHHmmss}";
             var ipAddress = GetClientIpAddress();
@@ -271,7 +285,8 @@ namespace Backend.Controllers
             var filteredParameters = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (var item in query)
             {
-                if (string.Equals(item.Key, "vnp_SecureHash", StringComparison.OrdinalIgnoreCase) ||
+                if (!item.Key.StartsWith("vnp_", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(item.Key, "vnp_SecureHash", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(item.Key, "vnp_SecureHashType", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;

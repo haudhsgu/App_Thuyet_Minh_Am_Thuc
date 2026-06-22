@@ -29,15 +29,18 @@ loginForm.addEventListener('submit', async (e) => {
       localStorage.setItem('userId', data.user.id);
       localStorage.setItem('deviceUniqueId', data.user.deviceUniqueId);
 
-      // Redirect depending on user role
+      // Redirect depending on user role — only Owner & Admin allowed here
       if (data.user.role === 'Admin') {
         window.location.href = 'admin.html';
       } else if (data.user.role === 'Owner') {
         window.location.href = 'owner.html';
-      } else if (data.user.role === 'Public') {
-        window.location.href = 'index.html';
       } else {
-        errorMessage.innerText = 'Vai trò người dùng không hợp lệ.';
+        // Public users should not use this login page
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('userRole');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userId');
+        errorMessage.innerText = 'Trang đăng nhập này chỉ dành cho Chủ Quán và Quản trị viên. Khách vui lòng truy cập trang Bản đồ.';
       }
     } else {
       const text = await response.text();

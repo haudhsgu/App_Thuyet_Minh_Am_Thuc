@@ -146,7 +146,7 @@ namespace Backend.Controllers
                     _logger.LogWarning(ex, "Background localization failed for stall {StallId} lang {Lang}", stallId, lang);
                 }
 
-                await Task.Delay(3500);
+                await Task.Delay(4500);
             }
 
             _logger.LogInformation("Background translation finished for language {Lang}", lang);

@@ -1,4 +1,4 @@
-﻿import { OfflineDatabase } from './db.js';
+import { OfflineDatabase } from './db.js';
 
 const db = new OfflineDatabase();
 let map;
@@ -82,6 +82,14 @@ const playAudioBtn = document.getElementById('play-audio-btn');
 const playBtnIcon = document.getElementById('play-btn-icon');
 const playBtnText = document.getElementById('play-btn-text');
 const audioStatus = document.getElementById('audio-status');
+
+const viewMenuBtn = document.getElementById('view-menu-btn');
+const directionsBtn = document.getElementById('directions-btn');
+const menuModal = document.getElementById('menu-modal');
+const menuImagesContainer = document.getElementById('menu-images-container');
+const menuModalMessage = document.getElementById('menu-modal-message');
+const menuModalClose = document.getElementById('menu-modal-close');
+
 let currentAudioUrl = '';
 let syncInProgress = false;
 let syncRetryTimerId = null;
@@ -241,6 +249,8 @@ const uiTranslations = {
     searchTypeType: "Loại món",
     searchBtn: "Tìm",
     filterLabel: "Bộ lọc quán",
+    viewMenuBtn: "Mở xem menu chi tiết",
+    directionsBtn: "Chỉ Đường",
     syncStatusReady: "Hệ thống sẵn sàng. Vui lòng bấm Đồng bộ để cập nhật dữ liệu.",
     syncStatusRunning: "Đang đồng bộ dữ liệu từ server...",
     syncStatusSuccess: (count) => `Đồng bộ thành công! Đã tải ${count} quán ăn.`,
@@ -314,6 +324,8 @@ const uiTranslations = {
     searchTypeType: "Food Type",
     searchBtn: "Search",
     filterLabel: "Stall Filter",
+    viewMenuBtn: "Open detailed menu",
+    directionsBtn: "Get Directions",
     syncStatusReady: "System ready. Please click Sync to download data.",
     syncStatusRunning: "Synchronizing data from server...",
     syncStatusSuccess: (count) => `Sync success! Downloaded ${count} food stalls.`,
@@ -609,11 +621,15 @@ function updateUiLanguage(lang) {
   if (gpsSwitchLabelEl) gpsSwitchLabelEl.innerText = trans.gpsLabel;
 
   if (syncBtn) syncBtn.innerText = trans.syncBtn;
+  if (viewMenuBtn) viewMenuBtn.innerHTML = '<span>☰</span> <span>' + (trans.viewMenuBtn || "Xem Menu") + '</span>';
+  if (directionsBtn) directionsBtn.innerHTML = '<span>📍</span> <span>' + (trans.directionsBtn || "Chỉ Đường") + '</span>';
   const stallListTitleEl = document.getElementById('stall-list-title');
   if (stallListTitleEl) stallListTitleEl.innerText = trans.stallListTitle || 'Danh sách quán';
 
   const chatHeaderEl = document.querySelector('.chat-header h3');
   if (chatHeaderEl) chatHeaderEl.innerText = trans.chatHeader;
+
+
 
   if (chatSendBtn) chatSendBtn.innerText = trans.chatSendBtn;
   if (chatInput) chatInput.placeholder = trans.chatPlaceholder;
@@ -732,11 +748,6 @@ async function initApp() {
 
     // Profile button wiring
     if (showProfileBtn) showProfileBtn.addEventListener('click', (e) => {
-      if (!isUserLoggedIn()) {
-        e.preventDefault();
-        window.location.href = 'login.html';
-        return;
-      }
       e.preventDefault();
       toggleProfileModal();
     });
@@ -772,7 +783,57 @@ async function initApp() {
     // Start Heartbeat loop every 30s
     sendHeartbeat();
     setInterval(sendHeartbeat, 30000);
-    playAudioBtn.addEventListener('click', onToggleAudio);
+    if (playAudioBtn) {
+      playAudioBtn.addEventListener('click', () => {
+        const activeStallId = stallCard?.dataset?.stallId || lastTriggeredStallId || '';
+        if (activeStallId) {
+          void recordUserAction(activeStallId, 'START_AUDIO');
+        }
+        onToggleAudio();
+      });
+    }
+
+    if (viewMenuBtn) {
+      viewMenuBtn.addEventListener('click', async () => {
+        const activeStallId = stallCard?.dataset?.stallId || lastTriggeredStallId || '';
+        if (!activeStallId) {
+          showMenuModalMessage('Vui lòng đứng gần một quán để xem menu.');
+          return;
+        }
+        void recordUserAction(activeStallId, 'VIEW_MENU');
+        await openMenuModal(activeStallId);
+      });
+    }
+
+    if (directionsBtn) {
+      directionsBtn.addEventListener('click', () => {
+        const activeStallId = stallCard?.dataset?.stallId || lastTriggeredStallId || '';
+        if (!activeStallId) {
+          alert('Vui lòng chọn một quán trước.');
+          return;
+        }
+        const stall = currentStallsCache.find(s => s.id === activeStallId);
+        if (stall && stall.latitude && stall.longitude) {
+          const url = `https://www.google.com/maps/dir/?api=1&destination=${stall.latitude},${stall.longitude}`;
+          window.open(url, '_blank');
+        }
+      });
+    }
+
+    if (menuModalClose) {
+      menuModalClose.addEventListener('click', () => {
+        if (menuModal) menuModal.style.display = 'none';
+      });
+    }
+
+    if (menuModal) {
+      menuModal.addEventListener('click', (event) => {
+        if (event.target === menuModal) {
+          menuModal.style.display = 'none';
+        }
+      });
+    }
+
     audioPlayer.addEventListener('ended', () => {
       const trans = getTrans();
       updatePlayButtonState(false);
@@ -1026,6 +1087,7 @@ function focusStallOnMap(id, stalls, showCard = true) {
   stallDistance.innerText = currentCoords ? `${Math.round(calculateHaversineDistance(currentCoords.lat, currentCoords.lon, stall.latitude, stall.longitude))}m` : '';
   if (showCard) {
     stallCard.classList.add('visible');
+    stallCard.dataset.stallId = stall.id;
   }
   currentAudioUrl = resolveAudioUrl(stall.audioUrl);
   if (currentAudioUrl) {
@@ -1163,8 +1225,9 @@ async function uploadAvatar() {
     }
     const data = await res.json();
     if (data && data.avatarUrl) {
-      if (profileAvatarImg) profileAvatarImg.src = data.avatarUrl;
-      setProfileButtonLabel(trans.profileBtnLoggedIn, data.avatarUrl);
+      const fullAvatarUrl = data.avatarUrl.startsWith('http') ? data.avatarUrl : serverUrl + data.avatarUrl;
+      if (profileAvatarImg) profileAvatarImg.src = fullAvatarUrl;
+      setProfileButtonLabel(trans.profileBtnLoggedIn, fullAvatarUrl);
       alert(trans.profileUploadSuccess);
     }
   } catch (err) {
@@ -1188,7 +1251,9 @@ async function fetchProfileIfLoggedIn() {
     const data = await res.json();
     if (!data) return;
     const trans = getTrans();
-    const avatar = data.avatarUrl || '';
+    const rawAvatar = data.avatarUrl || '';
+    const avatar = (rawAvatar && !rawAvatar.startsWith('http')) ? serverUrl + rawAvatar : rawAvatar;
+    
     setProfileButtonLabel(trans.profileBtnLoggedIn, avatar);
     showProfileBtn.style.display = 'inline-flex';
     if (profileAvatarImg && avatar) profileAvatarImg.src = avatar;
@@ -1198,19 +1263,25 @@ async function fetchProfileIfLoggedIn() {
     localStorage.setItem('fullName', data.fullName || data.fullname || localStorage.getItem('fullName') || '');
     localStorage.setItem('email', data.email || localStorage.getItem('email') || '');
     localStorage.setItem('phoneNumber', data.phoneNumber || data.phonenumber || localStorage.getItem('phoneNumber') || '');
+    
+    // Hide logout for public device accounts
+    const logoutBtn = document.getElementById('profile-logout-btn');
+    const ownerLoginBtn = document.getElementById('profile-owner-login-btn');
+    if (logoutBtn) logoutBtn.style.display = 'block';
+
   } catch (err) {
     console.warn('fetchProfileIfLoggedIn failed', err);
   }
 }
 
 function onLogout() {
-  // Clear auth-related localStorage keys and reload to show login
+  // Clear auth-related localStorage keys and reload
   localStorage.removeItem('authToken');
   localStorage.removeItem('userRole');
   localStorage.removeItem('username');
   localStorage.removeItem('userId');
     localStorage.removeItem('hasPaidAccess');
-  window.location.href = 'login.html';
+  window.location.reload();
 }
 
 function hasUnlockedAccess() {
@@ -1434,23 +1505,25 @@ async function onSync(options = {}) {
 
 // Fetch all audio files to populate service worker cache for offline use
 function prefetchAudioFiles(stalls, serverUrl) {
-  stalls.forEach(async stall => {
-    if (stall.audioUrl) {
-      // Re-route audioUrl relative to serverUrl if needed
-      const fullAudioUrl = stall.audioUrl.startsWith('http') 
-        ? stall.audioUrl 
-        : `${serverUrl}${stall.audioUrl}`;
-        
-      try {
-        const audioRes = await fetch(fullAudioUrl);
-        if (audioRes.ok) {
-          console.log(`Audio cached successfully for: ${stall.name}`);
+  // Use sequential fetching to avoid maxing out browser connection limits
+  (async () => {
+    for (const stall of stalls) {
+      if (stall.audioUrl) {
+        const fullAudioUrl = stall.audioUrl.startsWith('http') 
+          ? stall.audioUrl 
+          : `${serverUrl}${stall.audioUrl}`;
+          
+        try {
+          const audioRes = await fetch(fullAudioUrl);
+          if (audioRes.ok) {
+            console.log(`Audio cached successfully for: ${stall.name}`);
+          }
+        } catch (err) {
+          console.warn('Failed to pre-cache audio file for stall:', stall.name, err);
         }
-      } catch (err) {
-        console.warn('Failed to pre-cache audio file for stall:', stall.name, err);
       }
     }
-  });
+  })();
 }
 
 // Calculate distances & check geofencing proximity
@@ -1796,3 +1869,251 @@ function runSimStep() {
   // Trigger proximity check
   checkStallsProximity(lat, lng);
 }
+
+// --- Menu Modal & Visit Telemetry Logic ---
+
+function showMenuModalMessage(message) {
+  if (!menuModal || !menuModalMessage || !menuImagesContainer) return;
+  menuImagesContainer.innerHTML = '';
+  menuModalMessage.innerText = message;
+  menuModal.style.display = 'flex';
+}
+
+function renderMenuImages(images) {
+  if (!menuImagesContainer || !menuModalMessage) return;
+  menuImagesContainer.innerHTML = '';
+  const indicators = document.getElementById('menu-carousel-indicators');
+  if (indicators) indicators.innerHTML = '';
+  if (!Array.isArray(images) || images.length === 0) {
+    menuModalMessage.innerText = 'Quán này chưa cập nhật menu.';
+    return;
+  }
+
+  menuModalMessage.innerText = '';
+  // Build slides
+  images.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'menu-image-item';
+
+    const image = document.createElement('img');
+    image.src = url;
+    image.alt = `Menu image ${idx + 1}`;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => { image.style.opacity = '0.5'; });
+
+    item.appendChild(image);
+    menuImagesContainer.appendChild(item);
+
+    // indicator
+    if (indicators) {
+      const btn = document.createElement('button');
+      btn.dataset.index = String(idx);
+      btn.addEventListener('click', () => showSlide(idx));
+      indicators.appendChild(btn);
+    }
+  });
+
+  // Initialize carousel state
+  currentCarouselIndex = 0;
+  updateCarousel();
+}
+
+async function openMenuModal(activeStallId) {
+  if (!activeStallId) {
+    showMenuModalMessage('Không tìm thấy quán hiện tại.');
+    return;
+  }
+
+  const serverUrl = getBackendServerUrl().replace(/\/+$/, '');
+  const url = `${serverUrl}/api/foodstalls/${activeStallId}/menu`;
+
+  console.debug('openMenuModal fetch url', url);
+  showMenuModalMessage('Đang tải menu...');
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => response.statusText);
+      showMenuModalMessage('Không thể tải menu. Vui lòng thử lại.');
+      console.error('Menu load failed:', errorText);
+      return;
+    }
+
+    const imageUrls = await response.json();
+    renderMenuImages(imageUrls);
+    if (menuModal) menuModal.style.display = 'flex';
+    attachCarouselHandlers();
+  } catch (error) {
+    showMenuModalMessage('Lỗi kết nối. Vui lòng kiểm tra mạng.');
+    console.error(error);
+  }
+}
+
+// Carousel state & helpers
+let currentCarouselIndex = 0;
+function updateCarousel() {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  const indicators = document.querySelectorAll('.carousel-indicators button');
+  const slidesContainer = document.querySelector('.menu-slides');
+  if (!slidesContainer || slides.length === 0) return;
+  const w = slidesContainer.clientWidth;
+  slidesContainer.style.transform = `translateX(-${currentCarouselIndex * w}px)`;
+  indicators.forEach((b, i) => b.classList.toggle('active', i === currentCarouselIndex));
+}
+
+function showSlide(index) {
+  const slides = document.querySelectorAll('.menu-slides .menu-image-item');
+  if (!slides || slides.length === 0) return;
+  currentCarouselIndex = Math.max(0, Math.min(index, slides.length - 1));
+  updateCarousel();
+}
+
+function attachCarouselHandlers() {
+  const prev = document.getElementById('menu-prev');
+  const next = document.getElementById('menu-next');
+  if (prev) prev.onclick = () => showSlide(currentCarouselIndex - 1);
+  if (next) next.onclick = () => showSlide(currentCarouselIndex + 1);
+
+  const viewport = document.querySelector('.menu-viewport');
+  if (viewport) {
+    let startX = 0;
+    viewport.addEventListener('touchstart', (e) => { startX = e.touches[0].clientX; }, { passive: true });
+    viewport.addEventListener('touchend', (e) => {
+      const endX = e.changedTouches[0].clientX;
+      if (endX - startX > 40) showSlide(currentCarouselIndex - 1);
+      else if (startX - endX > 40) showSlide(currentCarouselIndex + 1);
+    }, { passive: true });
+  }
+
+  window.addEventListener('keydown', carouselKeyHandler);
+}
+
+function carouselKeyHandler(e) {
+  if (!menuModal || menuModal.style.display !== 'flex') return;
+  if (e.key === 'ArrowLeft') showSlide(currentCarouselIndex - 1);
+  if (e.key === 'ArrowRight') showSlide(currentCarouselIndex + 1);
+  if (e.key === 'Escape') { if (menuModal) menuModal.style.display = 'none'; }
+}
+
+async function recordUserAction(foodStallId, actionType) {
+  if (!foodStallId || !actionType) return null;
+
+  const serverUrl = getBackendServerUrl().replace(/\/$/, '');
+  if (!serverUrl) return null;
+
+  const token = localStorage.getItem('authToken');
+  if (!token) return null;
+
+  const coords = currentCoords;
+  if (!coords) return null;
+
+  try {
+    const response = await fetch(`${serverUrl}/api/visits/record`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        foodStallId,
+        actionType,
+        userLat: coords.lat,
+        userLng: coords.lon
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('Visit record rejected:', await response.text().catch(()=>''));
+      return null;
+    }
+    return await response.json();
+  } catch (err) {
+    console.warn('Visit record failed:', err);
+    return null;
+  }
+}
+
+
+// --- Splash Intro Logic ---
+document.addEventListener('DOMContentLoaded', () => {
+  const splash = document.getElementById('splash-intro');
+  if (splash) {
+    setTimeout(() => {
+      splash.style.opacity = '0';
+      splash.style.visibility = 'hidden';
+      setTimeout(() => splash.remove(), 800);
+    }, 2800);
+  }
+});
+
+// ==============================================================
+// MOBILE PWA UI LOGIC
+// ==============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const navItems = document.querySelectorAll('.mobile-bottom-nav .nav-item');
+  const stallPanel = document.querySelector('.stall-panel');
+  const chatPanel = document.querySelector('.chat-panel');
+  const stallCard = document.getElementById('stall-card');
+  
+  navItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      // Don't handle profile here, it's handled by the profile modal logic
+      if(item.dataset.view === 'profile') return;
+
+      // Update active state
+      navItems.forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+
+      const view = item.dataset.view;
+
+      if (view === 'map') {
+        stallPanel.classList.remove('mobile-active');
+        chatPanel.classList.remove('mobile-active');
+      } else if (view === 'list') {
+        stallPanel.classList.add('mobile-active');
+        chatPanel.classList.remove('mobile-active');
+        if (stallCard) stallCard.style.display = 'none';
+      } else if (view === 'ai') {
+        chatPanel.classList.add('mobile-active');
+        stallPanel.classList.remove('mobile-active');
+        if (stallCard) stallCard.style.display = 'none';
+      }
+    });
+  });
+
+  // FABs Logic
+  const mobileGpsBtn = document.getElementById('mobile-gps-btn');
+  const mobileSyncBtn = document.getElementById('mobile-sync-btn');
+  const realGpsSwitch = document.getElementById('gps-switch');
+  const realSyncBtn = document.getElementById('sync-btn');
+
+  if (mobileGpsBtn && realGpsSwitch) {
+    mobileGpsBtn.addEventListener('click', () => {
+      realGpsSwitch.click();
+      mobileGpsBtn.style.color = realGpsSwitch.checked ? '#10B981' : '#fff';
+    });
+  }
+
+  if (mobileSyncBtn && realSyncBtn) {
+    mobileSyncBtn.addEventListener('click', () => {
+      realSyncBtn.click();
+      mobileSyncBtn.style.transform = 'rotate(180deg)';
+      setTimeout(() => mobileSyncBtn.style.transform = 'rotate(0deg)', 500);
+    });
+  }
+
+  // Hook into existing profile button
+  const mobileProfileBtn = document.getElementById('nav-profile-btn');
+  const realProfileBtn = document.getElementById('show-profile-btn');
+  if (mobileProfileBtn && realProfileBtn) {
+    mobileProfileBtn.addEventListener('click', () => {
+      navItems.forEach(n => n.classList.remove('active'));
+      mobileProfileBtn.classList.add('active');
+      realProfileBtn.click();
+      
+      // Remove panels to show map behind modal
+      stallPanel.classList.remove('mobile-active');
+      chatPanel.classList.remove('mobile-active');
+    });
+  }
+});

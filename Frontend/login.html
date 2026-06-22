@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Đăng Nhập - ỐC QUẬN 4</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Đăng Nhập - TrackingFoods</title>
+  <link rel="stylesheet" href="style.css?v=4">
   <style>
     body {
       justify-content: center;
@@ -111,10 +111,11 @@
   </style>
 </head>
 <body>
+  <canvas id="particle-canvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none;"></canvas>
   <div class="login-container">
     <div class="login-header">
-      <h2>ỐC QUẬN 4</h2>
-      <p>Đăng nhập để sử dụng bản đồ, AI trợ lý và hồ sơ người dùng.</p>
+      <h2>TrackingFoods</h2>
+      <p>Trang đăng nhập dành riêng cho Chủ Quán và Quản trị viên.<br><small style="color:#6b7280;">Khách hàng vui lòng sử dụng trang Bản đồ chính.</small></p>
     </div>
 
     <form id="login-form">
@@ -132,14 +133,14 @@
       <div class="error-msg" id="error-message"></div>
     </form>
 
-    <div class="register-nav-group">
-      <a href="register-owner.html" class="btn register-nav-btn">Đăng ký cho quán</a>
-      <a href="register-user.html" class="btn register-nav-btn">Đăng ký cho khách</a>
+    <div class="register-nav-group" style="grid-template-columns: 1fr;">
+      <a href="register-owner.html" class="btn register-nav-btn">Đăng ký tài khoản Chủ Quán</a>
     </div>
 
     <a href="index.html" class="home-link">← Quay về Trang chủ Bản đồ</a>
   </div>
 
   <script src="login.js"></script>
+  <script src="particles.js"></script>
 </body>
 </html>

@@ -18,6 +18,8 @@ namespace Backend.Data
         public DbSet<AiUsageLimit> AiUsageLimits => Set<AiUsageLimit>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+        public DbSet<StallVisit> StallVisits => Set<StallVisit>();
+        public DbSet<StallMenuImage> StallMenuImages => Set<StallMenuImage>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -32,6 +34,9 @@ namespace Backend.Data
             modelBuilder.Entity<Localization>()
                 .HasIndex(l => new { l.FoodStallId, l.LanguageCode })
                 .IsUnique();
+
+            modelBuilder.Entity<StallVisit>()
+                .HasIndex(v => new { v.UserId, v.FoodStallId, v.CreatedAt });
         }
     }
 }

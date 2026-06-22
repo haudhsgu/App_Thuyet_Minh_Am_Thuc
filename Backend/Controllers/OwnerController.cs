@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Backend.Data;
@@ -14,10 +16,12 @@ namespace Backend.Controllers
     public class OwnerController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
+        private readonly IAudioGenerationPipeline _audioPipeline;
 
-        public OwnerController(AppDbContext dbContext)
+        public OwnerController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
         {
             _dbContext = dbContext;
+            _audioPipeline = audioPipeline;
         }
 
         // 1. GET Owner's Food Stalls
@@ -28,7 +32,21 @@ namespace Backend.Controllers
             if (owner == null) return Unauthorized("Stall Owner authorization required.");
 
             var stalls = await _dbContext.FoodStalls
+                .Include(s => s.MenuImages)
                 .Where(s => s.OwnerId == owner.Id)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    s.Address,
+                    s.Latitude,
+                    s.Longitude,
+                    s.OriginalHistory,
+                    s.IsVerified,
+                    s.AdminNote,
+                    s.OwnerId,
+                    MenuImages = s.MenuImages.Select(m => new { m.Id, m.ImageUrl }).ToList()
+                })
                 .ToListAsync();
 
             return Ok(stalls);
@@ -72,6 +90,24 @@ namespace Backend.Controllers
             });
             await _dbContext.SaveChangesAsync();
 
+            // Auto-generate translations and TTS audio in background for all supported languages
+            // so that Admin can listen and review them immediately
+            _ = Task.Run(async () =>
+            {
+                var supportedLanguages = new[] { "en", "ko", "ja", "zh", "fr" };
+                foreach (var lang in supportedLanguages)
+                {
+                    try
+                    {
+                        await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                    }
+                    catch (Exception)
+                    {
+                        // Ignore thread crash
+                    }
+                }
+            });
+
             return Ok(new { success = true, message = "Cập nhật thành công. Đang chờ Admin phê duyệt để hiển thị lên bản đồ.", stall });
         }
 
@@ -99,6 +135,103 @@ namespace Backend.Controllers
             }
 
             return Ok(list);
+        }
+
+        // 4. POST Owner's Stall Menu Image
+        [HttpPost("pois/{id}/menu")]
+        public async Task<IActionResult> UploadMenuImage(Guid id, IFormFile file)
+        {
+            var owner = await GetOwnerUserAsync();
+            if (owner == null) return Unauthorized("Stall Owner authorization required.");
+
+            var stall = await _dbContext.FoodStalls.FindAsync(id);
+            if (stall == null) return NotFound("Stall not found.");
+
+            if (stall.OwnerId != owner.Id) return Unauthorized("Access denied. You do not own this stall.");
+
+            if (file == null || file.Length == 0) return BadRequest("No file uploaded.");
+
+            // Basic validation
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+            {
+                return BadRequest("Invalid file type. Only JPG, PNG, WEBP are allowed.");
+            }
+
+            // Save file
+            var directoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "menus");
+            if (!Directory.Exists(directoryPath))
+            {
+                Directory.CreateDirectory(directoryPath);
+            }
+
+            var fileName = $"{Guid.NewGuid()}{ext}";
+            var filePath = Path.Combine(directoryPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Save to DB
+            var menuImage = new StallMenuImage
+            {
+                FoodStallId = stall.Id,
+                ImageUrl = $"/menus/{fileName}", // Save relative to /images/
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.StallMenuImages.Add(menuImage);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { 
+                success = true, 
+                menuImage = new { Id = menuImage.Id, ImageUrl = menuImage.ImageUrl } 
+            });
+        }
+
+        // 5. DELETE Owner's Stall Menu Image
+        [HttpDelete("pois/{id}/menu/{imageId}")]
+        public async Task<IActionResult> DeleteMenuImage(Guid id, Guid imageId)
+        {
+            var owner = await GetOwnerUserAsync();
+            if (owner == null) return Unauthorized("Stall Owner authorization required.");
+
+            var stall = await _dbContext.FoodStalls.FindAsync(id);
+            if (stall == null) return NotFound("Stall not found.");
+
+            if (stall.OwnerId != owner.Id) return Unauthorized("Access denied. You do not own this stall.");
+
+            var menuImage = await _dbContext.StallMenuImages.FirstOrDefaultAsync(m => m.Id == imageId && m.FoodStallId == id);
+            if (menuImage == null) return NotFound("Menu image not found.");
+
+            // Remove from DB
+            _dbContext.StallMenuImages.Remove(menuImage);
+            await _dbContext.SaveChangesAsync();
+
+            // Try to remove the actual file
+            try
+            {
+                var relativePath = menuImage.ImageUrl.TrimStart('/');
+                // In MenuController, it adds /images/ before it if it doesn't start with http
+                // Actually MenuController does: trimmed = trimmed.TrimStart('/', '\\'); return $"{baseUrl}/images/{trimmed}";
+                // So ImageUrl is "menus/xxx.jpg" or "/menus/xxx.jpg"
+                
+                if (relativePath.StartsWith("menus/"))
+                {
+                    var filePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", relativePath);
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error deleting image file: {ex.Message}");
+            }
+
+            return Ok(new { success = true, message = "Image deleted successfully." });
         }
 
         private async Task<User?> GetOwnerUserAsync()

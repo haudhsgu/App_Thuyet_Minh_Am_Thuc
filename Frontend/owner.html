@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Khu Vực Chủ Quán - Ốc Quận 4</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Khu Vực Chủ Quán - TrackingFoods</title>
+  <link rel="stylesheet" href="style.css?v=4">
   
   <!-- Leaflet Map library -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -30,6 +30,30 @@
       grid-template-columns: 1.2fr 1fr;
       gap: 30px;
     }
+
+    .tab-btn {
+      background: transparent;
+      color: var(--text-gray);
+      border: none;
+      border-bottom: 3px solid transparent;
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-white);
+    }
+
+    .tab-btn.active {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+
     @media (max-width: 900px) {
       .owner-layout {
         grid-template-columns: 1fr;
@@ -162,7 +186,7 @@
   <!-- Header Section -->
   <header class="header-panel">
     <div class="title-section">
-      <h1>ỐC QUẬN 4</h1>
+      <h1>TrackingFoods</h1>
       <span>KHU VỰC DÀNH CHO CHỦ CỦA HÀNG</span>
     </div>
 
@@ -181,9 +205,14 @@
 
       <span id="owner-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray); margin-left: 10px;">Chủ quán</span>
       
-      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px;">Đăng xuất</button>
+      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 6px;">Đăng xuất</button>
     </div>
   </header>
+
+  <div class="owner-tabs" style="max-width:1200px; margin: 18px auto 0; padding: 0 20px;">
+    <button class="tab-btn active" data-tab="owner-main" style="padding:10px 14px; margin-right:8px;">🏠 Trang Chủ</button>
+    <button class="tab-btn" data-tab="owner-stats" style="padding:10px 14px;">📊 Thống Kê</button>
+  </div>
 
   <main class="owner-layout">
     <!-- Left Panel: Stall Info -->
@@ -228,6 +257,25 @@
         <button type="submit" class="btn" style="width: 100%; padding: 14px; font-size: 14px;">Lưu & Gửi phê duyệt thuyết minh</button>
         <div id="submit-feedback" style="text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600;"></div>
       </form>
+
+      <div style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
+        <div class="panel-title" style="margin-bottom: 15px;">
+          <span>Quản lý Menu quán ăn</span>
+        </div>
+        <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 15px;">Tải lên hình ảnh chụp Menu của quán để khách du lịch dễ dàng tham khảo.</p>
+        
+        <!-- Menu Images Grid -->
+        <div id="owner-menu-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-bottom: 15px;">
+          <!-- Images will be rendered here -->
+        </div>
+
+        <!-- Upload Menu Input -->
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input type="file" id="menu-upload-input" accept="image/jpeg, image/png, image/webp" style="display: none;">
+          <button type="button" class="btn" id="menu-upload-btn" style="background: #3b82f6; font-size: 13px; padding: 8px 16px;">+ Thêm ảnh Menu</button>
+          <span id="menu-upload-status" style="font-size: 12px; color: var(--text-gray);"></span>
+        </div>
+      </div>
     </div>
 
     <!-- Right Panel: AI Advisor tool -->
@@ -260,6 +308,14 @@
     </div>
   </main>
 
+  <!-- Owner stats tab (iframe) -->
+  <div class="tab-content" id="owner-stats" style="width: 100%; max-width: 1200px; margin: 20px auto; padding: 0px 20px; display: none; box-sizing: border-box;">
+    <div class="card-panel" style="padding: 0; width: 100%;">
+        <iframe id="owner-stats-iframe" src="owner-stats.html" style="width: 100%; height: 600px; border: 0; display: block; border-radius: 12px;"></iframe>
+    </div>
+  </div>
+
   <script src="owner.js"></script>
 </body>
 </html>
+

@@ -33,7 +33,7 @@ const interactiveSelectors = [
 let gateOverlay;
 let pollTimer;
 let fetchPatched = false;
-let paymentGateReadyPromise = Promise.resolve();
+let paymentGateReadyPromise = null;
 
 function isProtectedApiPath(pathname) {
   return pathname.startsWith('/api/foodstalls')
@@ -64,14 +64,19 @@ function shouldBlockRequest(resource) {
     return false;
   }
 
-  const token = getSessionToken();
-  if (!token) {
-    return true;
-  }
-
   const requestUrl = typeof resource === 'string' ? resource : resource?.url || resource?.href || '';
   if (!requestUrl) {
     return false;
+  }
+
+  // ALLOW AUTH ENDPOINTS TO PASS THROUGH
+  if (requestUrl.includes('/api/auth/device-login') || requestUrl.includes('/api/auth/login') || requestUrl.includes('/api/auth/me')) {
+    return false;
+  }
+
+  const token = getSessionToken();
+  if (!token) {
+    return true;
   }
 
   try {
@@ -126,7 +131,7 @@ function ensureGateOverlay() {
       <div style="font-size:14px;color:#fbbf24;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;">Paywall</div>
       <h2 style="margin:0 0 12px;font-size:26px;line-height:1.2;">Thanh toán để mở khóa toàn bộ chức năng</h2>
       <p id="payment-gate-message" style="margin:0 0 16px;color:#d1d5db;line-height:1.6;">
-        Bạn vẫn có thể xem giao diện, nhưng cần thanh toán VNPAY thành công để dùng đồng bộ dữ liệu, tra cứu quán, nghe thuyết minh và chat AI.
+        Bạn vẫn có thể xem giao diện, nhưng cần thanh toán VNPAY thành công để sử dụng các chức năng chính.
       </p>
       <div id="payment-gate-status" style="margin-bottom:18px;font-size:14px;color:#cbd5e1;">Đang kiểm tra trạng thái thanh toán...</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -150,6 +155,15 @@ function getSessionToken() {
 
 function getUserRole() {
   return String(localStorage.getItem('userRole') || '').toLowerCase();
+}
+
+function getDeviceId() {
+  let deviceId = localStorage.getItem('deviceId');
+  if (!deviceId) {
+    deviceId = 'DEV-' + Math.random().toString(36).substr(2, 9) + '-' + Date.now().toString(36);
+    localStorage.setItem('deviceId', deviceId);
+  }
+  return deviceId;
 }
 
 function clearInvalidSession() {
@@ -222,11 +236,8 @@ async function checkPaymentStatus() {
 
     if (status.unauthorized) {
       clearInvalidSession();
-      setGateVisible(true, 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'Sau khi đăng nhập lại, hệ thống sẽ kiểm tra thanh toán tự động.');
-      if (pollTimer) {
-        window.clearInterval(pollTimer);
-        pollTimer = null;
-      }
+      // Force a reload so it re-fetches device token on next start
+      window.location.reload();
       return;
     }
 
@@ -256,7 +267,7 @@ async function checkPaymentStatus() {
 async function handlePaymentClick() {
   const token = getSessionToken();
   if (!token) {
-    window.location.href = 'login.html';
+    setGateVisible(true, 'Đang khởi tạo tài khoản thiết bị...', 'Vui lòng chờ...');
     return;
   }
 
@@ -266,7 +277,8 @@ async function handlePaymentClick() {
   }
 
   try {
-    const response = await fetch(`${defaultServerUrl}/api/payments/create`, {
+    const returnUrl = encodeURIComponent(window.location.href);
+    const response = await fetch(`${defaultServerUrl}/api/payments/create?returnUrl=${returnUrl}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`
@@ -276,8 +288,7 @@ async function handlePaymentClick() {
     if (!response.ok) {
       if (response.status === 401) {
         clearInvalidSession();
-        setGateVisible(true, 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', 'Bạn sẽ được chuyển về trang đăng nhập.');
-        window.location.href = 'login.html';
+        window.location.reload();
         return;
       }
 
@@ -311,24 +322,48 @@ function startPaymentPolling() {
   }, 8000);
 }
 
-function initPaymentGate() {
-  const role = getUserRole();
-  const token = getSessionToken();
-
+async function initPaymentGate() {
   installFetchGate();
 
-  if (!token || role === 'admin' || role === 'owner') {
-    if (role === 'admin' || role === 'owner') {
+  const role = getUserRole();
+  
+  if (role === 'admin' || role === 'owner') {
+    return;
+  }
+
+  // Auto Device Login
+  try {
+    const deviceId = getDeviceId();
+    const response = await fetch(`${defaultServerUrl}/api/auth/device-login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: deviceId })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.token) {
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userRole', data.user.role);
+        if (data.user.hasPaidAccess) {
+          localStorage.setItem('hasPaidAccess', 'true');
+        } else {
+          localStorage.removeItem('hasPaidAccess');
+        }
+      }
+    } else {
+      setGateVisible(true, 'Lỗi kết nối máy chủ', 'Không thể kết nối Backend. Vui lòng bật lại Backend (dotnet run).');
       return;
     }
-
-    setGateVisible(true, 'Đăng nhập rồi thanh toán VNPAY để mở khóa các chức năng của ứng dụng.', 'Bạn vẫn chỉ xem được giao diện cho đến khi hoàn tất thanh toán.');
+  } catch (err) {
+    console.error('Device login failed:', err);
+    setGateVisible(true, 'Lỗi kết nối máy chủ', 'Vui lòng kiểm tra xem Backend đã bật chưa (dotnet run).');
     return;
   }
 
   setGateVisible(true, 'Đang kiểm tra trạng thái thanh toán...', 'Nếu thanh toán đã xong, trang sẽ tự mở khóa khi xác thực xong.');
-  paymentGateReadyPromise = checkPaymentStatus().finally(() => startPaymentPolling());
-  window.paymentGateReadyPromise = paymentGateReadyPromise;
+  await checkPaymentStatus();
+  startPaymentPolling();
   window.refreshPaymentGate = () => checkPaymentStatus();
 }
 
@@ -344,8 +379,17 @@ window.addEventListener('visibilitychange', () => {
   }
 });
 
+let gateResolve;
+paymentGateReadyPromise = new Promise(resolve => { gateResolve = resolve; });
+window.paymentGateReadyPromise = paymentGateReadyPromise;
+
+async function executeInitPaymentGate() {
+  await initPaymentGate();
+  gateResolve();
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initPaymentGate);
+  document.addEventListener('DOMContentLoaded', executeInitPaymentGate);
 } else {
-  initPaymentGate();
+  executeInitPaymentGate();
 }

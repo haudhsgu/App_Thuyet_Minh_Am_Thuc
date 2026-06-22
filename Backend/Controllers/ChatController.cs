@@ -102,7 +102,7 @@ namespace Backend.Controllers
             var systemPrompt = "You are an AI Food Tour Guide for Vĩnh Khánh Street Food Court in District 4, Ho Chi Minh City. " +
                                "Answer the user's questions about the food stalls using ONLY the provided list. " +
                                "If the user asks for a food tour itinerary, create a logical walking route based on their location or coordinate proximities. " +
-                               $"You MUST reply entirely in {replyLanguage}. Keep the tone friendly, enthusiastic, and helpful for tourists.";
+                               $"CRITICAL INSTRUCTION: You MUST translate any provided context and reply ENTIRELY in {replyLanguage}. If the context is in Vietnamese, translate it to {replyLanguage} before responding. Keep the tone friendly, enthusiastic, and helpful for tourists.";
 
             var prompt = $"{systemPrompt}\n\nContext:\n{contextBuilder}\n\nUser Question:\n{request.Question}";
 

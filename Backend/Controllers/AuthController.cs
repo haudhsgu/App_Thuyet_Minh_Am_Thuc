@@ -17,10 +17,12 @@ namespace Backend.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _dbContext;
+        private readonly IAudioGenerationPipeline _audioPipeline;
 
-        public AuthController(AppDbContext dbContext)
+        public AuthController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
         {
             _dbContext = dbContext;
+            _audioPipeline = audioPipeline;
         }
 
         public class RegisterOwnerRequest
@@ -107,6 +109,24 @@ namespace Backend.Controllers
                     await _dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
 
+                    // Auto-generate translations and TTS audio in background for all supported languages
+                    // so that Admin can listen and review them immediately
+                    _ = Task.Run(async () =>
+                    {
+                        var supportedLanguages = new[] { "en", "ko", "ja", "zh", "fr" };
+                        foreach (var lang in supportedLanguages)
+                        {
+                            try
+                            {
+                                await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            }
+                            catch (Exception)
+                            {
+                                // Ignore thread crash
+                            }
+                        }
+                    });
+
                     return Ok(new { success = true, message = "Owner registration submitted successfully. Pending Admin approval." });
                 }
                 catch (Exception ex)
@@ -148,6 +168,82 @@ namespace Backend.Controllers
             await _dbContext.SaveChangesAsync();
 
             return Ok(new { success = true, message = "Public user registered successfully." });
+        }
+
+        public class DeviceLoginRequest
+        {
+            public string DeviceId { get; set; } = string.Empty;
+        }
+
+        [HttpPost("device-login")]
+        public async Task<IActionResult> DeviceLogin([FromBody] DeviceLoginRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.DeviceId))
+                return BadRequest("DeviceId is required.");
+
+            // Avoid too long deviceIds
+            var deviceId = request.DeviceId.Trim();
+            if (deviceId.Length > 100)
+                deviceId = deviceId.Substring(0, 100);
+
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.DeviceUniqueId == deviceId);
+
+            if (user == null)
+            {
+                // Auto create the user for this device
+                user = new User
+                {
+                    Id = Guid.NewGuid(),
+                    Username = "Device_" + Guid.NewGuid().ToString("N").Substring(0, 8),
+                    DeviceUniqueId = deviceId,
+                    Role = "Public",
+                    IsVerified = true,
+                    HasPaidAccess = false,
+                    LastActive = DateTime.UtcNow
+                };
+
+                _dbContext.Users.Add(user);
+                await _dbContext.SaveChangesAsync();
+            }
+            else
+            {
+                user.LastActive = DateTime.UtcNow;
+                await _dbContext.SaveChangesAsync();
+            }
+
+            // Generate clean secure token session (24h validity)
+            var tokenBytes = new byte[32];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(tokenBytes);
+            }
+            var token = Convert.ToHexString(tokenBytes);
+
+            var session = new UserSession
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Token = token,
+                ExpiresAt = DateTime.UtcNow.AddDays(1),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _dbContext.UserSessions.Add(session);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new
+            {
+                success = true,
+                token = token,
+                user = new
+                {
+                    user.Id,
+                    user.Username,
+                    user.Role,
+                    user.FullName,
+                    user.HasPaidAccess
+                }
+            });
         }
 
         public class LoginRequest
@@ -229,19 +325,20 @@ namespace Backend.Controllers
         [HttpPost("upload-avatar")]
         public async Task<IActionResult> UploadAvatar()
         {
-            var user = await GetCurrentUserAsync();
-            if (user == null) return Unauthorized("Invalid session token.");
+            try {
+                var user = await GetCurrentUserAsync();
+                if (user == null) return Unauthorized("Invalid session token.");
 
-            if (!Request.HasFormContentType)
-                return BadRequest("Invalid form upload.");
+                if (!Request.HasFormContentType)
+                    return BadRequest("Invalid form upload. HasFormContentType is false.");
 
-            var form = await Request.ReadFormAsync();
-            var file = form.Files.FirstOrDefault();
-            if (file == null) return BadRequest("No file uploaded.");
+                var form = await Request.ReadFormAsync();
+                var file = form.Files.FirstOrDefault();
+                if (file == null) return BadRequest("No file uploaded. form.Files.Count = " + form.Files.Count);
 
-            var ext = Path.GetExtension(file.FileName);
-            var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-            if (!allowed.Contains(ext.ToLower())) return BadRequest("Unsupported file type.");
+                var ext = Path.GetExtension(file.FileName);
+                var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
+                if (!allowed.Contains(ext.ToLower())) return BadRequest("Unsupported file type: " + ext);
 
             var avatarsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "avatars");
             Directory.CreateDirectory(avatarsFolder);
@@ -259,6 +356,9 @@ namespace Backend.Controllers
             await _dbContext.SaveChangesAsync();
 
             return Ok(new { avatarUrl = user.AvatarUrl });
+            } catch (Exception ex) {
+                return BadRequest("Exception: " + ex.Message);
+            }
         }
 
         public class ChangePasswordRequest

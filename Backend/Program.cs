@@ -10,7 +10,10 @@ using System.Text.Json;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+});
 builder.Services.AddHttpClient();
 
 // Database connection (PostgreSQL with SQLite fallback for local development)
@@ -43,6 +46,7 @@ builder.Services.AddScoped<ITranslationService, TranslationService>();
 builder.Services.AddSingleton<IStallMetadataTranslationService, StallMetadataTranslationService>();
 builder.Services.AddScoped<IEdgeTtsService, EdgeTtsService>();
 builder.Services.AddScoped<IAudioGenerationPipeline, AudioGenerationPipeline>();
+builder.Services.AddScoped<IVisitService, VisitService>();
 
 // Swagger/OpenAPI setup
 builder.Services.AddOpenApi();
@@ -73,7 +77,13 @@ if (!app.Environment.IsDevelopment())
 }
 
 // Serve static files (Crucial for MP3 downloads from wwwroot)
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers.Append("Access-Control-Allow-Origin", "*");
+    }
+});
 
 app.UseAuthorization();
 app.MapControllers();
@@ -111,6 +121,7 @@ using (var scope = app.Services.CreateScope())
 
         await EnsureUserProfileColumnsAsync(context);
         await EnsureUserBillingColumnsAsync(context);
+        await EnsureMenuAndVisitTablesAsync(context);
 
         // Seed Default Admin User if not exists
         if (!context.Users.Any(u => u.Role == "Admin"))
@@ -341,6 +352,72 @@ static async Task EnsurePaymentTransactionsTableAsync(Backend.Data.AppDbContext 
                 ""IsSuccess"" boolean NOT NULL,
                 ""CreatedAt"" timestamp with time zone NOT NULL,
                 CONSTRAINT ""FK_PaymentTransactions_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+            );
+        ");
+    }
+}
+
+static async Task EnsureMenuAndVisitTablesAsync(Backend.Data.AppDbContext context)
+{
+    var providerName = context.Database.ProviderName ?? string.Empty;
+
+    if (providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS StallVisits (
+                Id TEXT NOT NULL PRIMARY KEY,
+                FoodStallId TEXT NOT NULL,
+                UserId TEXT NOT NULL,
+                ActionType TEXT NOT NULL,
+                UserLatitude REAL NOT NULL,
+                UserLongitude REAL NOT NULL,
+                DistanceMeter REAL NOT NULL,
+                IsValidVisit INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                FOREIGN KEY(FoodStallId) REFERENCES FoodStalls(Id) ON DELETE CASCADE,
+                FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS IX_StallVisits_UserId_FoodStallId_CreatedAt ON StallVisits(UserId, FoodStallId, CreatedAt);
+
+            CREATE TABLE IF NOT EXISTS StallMenuImages (
+                Id TEXT NOT NULL PRIMARY KEY,
+                FoodStallId TEXT NOT NULL,
+                ImageUrl TEXT NOT NULL,
+                IsMainImage INTEGER NOT NULL,
+                DisplayOrder INTEGER NOT NULL,
+                CreatedAt TEXT NOT NULL,
+                FOREIGN KEY(FoodStallId) REFERENCES FoodStalls(Id) ON DELETE CASCADE
+            );
+        ");
+        return;
+    }
+
+    if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) || providerName.Contains("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""StallVisits"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""FoodStallId"" uuid NOT NULL,
+                ""UserId"" uuid NOT NULL,
+                ""ActionType"" text NOT NULL,
+                ""UserLatitude"" double precision NOT NULL,
+                ""UserLongitude"" double precision NOT NULL,
+                ""DistanceMeter"" double precision NOT NULL,
+                ""IsValidVisit"" boolean NOT NULL,
+                ""CreatedAt"" timestamp with time zone NOT NULL,
+                CONSTRAINT ""FK_StallVisits_FoodStalls_FoodStallId"" FOREIGN KEY (""FoodStallId"") REFERENCES ""FoodStalls"" (""Id"") ON DELETE CASCADE,
+                CONSTRAINT ""FK_StallVisits_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS ""IX_StallVisits_UserId_FoodStallId_CreatedAt"" ON ""StallVisits""(""UserId"", ""FoodStallId"", ""CreatedAt"");
+
+            CREATE TABLE IF NOT EXISTS ""StallMenuImages"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""FoodStallId"" uuid NOT NULL,
+                ""ImageUrl"" text NOT NULL,
+                ""IsMainImage"" boolean NOT NULL,
+                ""DisplayOrder"" integer NOT NULL,
+                ""CreatedAt"" timestamp with time zone NOT NULL,
+                CONSTRAINT ""FK_StallMenuImages_FoodStalls_FoodStallId"" FOREIGN KEY (""FoodStallId"") REFERENCES ""FoodStalls"" (""Id"") ON DELETE CASCADE
             );
         ");
     }

@@ -8,7 +8,7 @@ namespace Backend.Services
     {
         private static readonly SemaphoreSlim Gate = new(1, 1);
         private static DateTime _lastRequestUtc = DateTime.MinValue;
-        private const int MinIntervalMs = 1500;
+        private const int MinIntervalMs = 4200;
 
         public static async Task WaitForTurnAsync()
         {

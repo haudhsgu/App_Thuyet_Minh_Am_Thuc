@@ -15,7 +15,8 @@ namespace Backend.Controllers
     {
         private readonly AppDbContext _dbContext;
         private readonly IAudioGenerationPipeline _audioPipeline;
-        private static readonly string[] SupportedLanguages = { "vi", "en", "ja", "ko" };
+        private static readonly string[] SupportedLanguages = { "vi", "en", "ja", "ko", "zh" };
+        private static readonly string[] StallVisitActions = { "LISTENED_STALL", "VISITED_STALL" };
 
         public AdminController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
         {
@@ -31,7 +32,7 @@ namespace Backend.Controllers
             if (admin == null) return Unauthorized("Admin privileges required.");
 
             var totalStalls = await _dbContext.FoodStalls.CountAsync();
-            var totalUsers = await _dbContext.Users.CountAsync(u => u.Role == "Owner" || u.Role == "Public");
+            var totalUsers = await _dbContext.Users.CountAsync(u => u.Role == "Public");
             
             // Active users are users whose LastActive is within the last 5 minutes
             var activeThreshold = DateTime.UtcNow.AddMinutes(-5);
@@ -110,6 +111,25 @@ namespace Backend.Controllers
             }
 
             await _dbContext.SaveChangesAsync();
+
+            if (stall != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    foreach (var lang in SupportedLanguages)
+                    {
+                        try
+                        {
+                            await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
+                        catch (Exception)
+                        {
+                            // Ignore to avoid crashing the background thread
+                        }
+                    }
+                });
+            }
+
             return Ok(new { success = true, message = "Owner registration approved successfully." });
         }
 
@@ -144,7 +164,47 @@ namespace Backend.Controllers
             return Ok(pendingStalls);
         }
 
-        // 6. POST Approve Stall Submission
+        // 6. POST Generate translations and audio for all stalls
+        [HttpPost("localizations/generate-all")]
+        public async Task<IActionResult> GenerateAllLocalizations()
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var stalls = await _dbContext.FoodStalls.ToListAsync();
+            if (stalls.Count == 0)
+            {
+                return Ok(new { success = true, message = "No stalls found to generate localizations." });
+            }
+
+            _ = Task.Run(async () =>
+            {
+                foreach (var stall in stalls)
+                {
+                    foreach (var lang in SupportedLanguages)
+                    {
+                        try
+                        {
+                            await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
+                        catch
+                        {
+                            // Ignore individual failures to allow batch completion.
+                        }
+                    }
+                }
+            });
+
+            return Ok(new
+            {
+                success = true,
+                message = "Localization generation started for all stalls.",
+                stallCount = stalls.Count,
+                supportedLanguages = SupportedLanguages
+            });
+        }
+
+        // 7. POST Approve Stall Submission
         [HttpPost("submissions/{id}/approve")]
         public async Task<IActionResult> ApproveSubmission(Guid id, [FromBody] string adminNote)
         {
@@ -268,6 +328,17 @@ namespace Backend.Controllers
                 .Take(100)
                 .ToListAsync();
 
+            var stallIds = logs
+                .Select(t => ExtractStallIdFromAction(t.Action))
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .Distinct()
+                .ToList();
+
+            var stallMap = await _dbContext.FoodStalls
+                .Where(s => stallIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+
             var result = logs.Select(t => new
             {
                 t.Id,
@@ -276,13 +347,65 @@ namespace Backend.Controllers
                 t.Timestamp,
                 t.Latitude,
                 t.Longitude,
-                t.Action
+                Action = SimplifyAction(t.Action),
+                StallId = ExtractStallIdFromAction(t.Action),
+                StallName = stallMap.TryGetValue(ExtractStallIdFromAction(t.Action) ?? Guid.Empty, out var name) ? name : null
             });
 
             return Ok(result);
         }
 
-        // 10. POST Update PWA Client Heartbeat/Telemetry
+        // 10. GET Stall Visit Summary
+        [HttpGet("visit-summary")]
+        public async Task<IActionResult> GetStallVisitSummary()
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var visits = await _dbContext.UserTelemetries
+                .Where(t => StallVisitActions.Any(action => t.Action.StartsWith(action + ":")))
+                .ToListAsync();
+
+            var summary = visits
+                .Select(t => new
+                {
+                    StallId = ExtractStallIdFromAction(t.Action),
+                    ActionType = SimplifyAction(t.Action),
+                    t.UserId,
+                    t.Timestamp
+                })
+                .Where(x => x.StallId.HasValue)
+                .GroupBy(x => x.StallId!.Value)
+                .Select(g => new
+                {
+                    StallId = g.Key,
+                    VisitCount = g.Count(),
+                    UniqueVisitors = g.Select(x => x.UserId).Distinct().Count(),
+                    LastVisit = g.Max(x => x.Timestamp),
+                    ActionType = g.Select(x => x.ActionType).Distinct().FirstOrDefault() ?? "LISTENED_STALL"
+                })
+                .OrderByDescending(x => x.VisitCount)
+                .Take(20)
+                .ToList();
+
+            var stalls = await _dbContext.FoodStalls
+                .Where(s => summary.Select(x => x.StallId).Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s.Name);
+
+            var result = summary.Select(x => new
+            {
+                x.StallId,
+                StallName = stalls.TryGetValue(x.StallId, out var name) ? name : "Unknown",
+                x.VisitCount,
+                x.UniqueVisitors,
+                x.LastVisit,
+                x.ActionType
+            });
+
+            return Ok(result);
+        }
+
+        // 11. POST Update PWA Client Heartbeat/Telemetry
         [HttpPost("heartbeat")]
         public async Task<IActionResult> Heartbeat([FromBody] HeartbeatRequest request)
         {
@@ -317,12 +440,22 @@ namespace Backend.Controllers
                 Timestamp = DateTime.UtcNow,
                 Latitude = request.Latitude ?? 10.760124,
                 Longitude = request.Longitude ?? 106.702958,
-                Action = request.Action ?? "HEARTBEAT"
+                Action = BuildTelemetryAction(request.Action, request.StallId)
             };
             _dbContext.UserTelemetries.Add(telemetry);
 
             await _dbContext.SaveChangesAsync();
             return Ok(new { success = true });
+        }
+
+        private string BuildTelemetryAction(string? action, Guid? stallId)
+        {
+            var normalizedAction = string.IsNullOrWhiteSpace(action) ? "HEARTBEAT" : action.Trim().ToUpperInvariant();
+            if (stallId.HasValue && StallVisitActions.Contains(normalizedAction))
+            {
+                return $"{normalizedAction}:{stallId.Value}";
+            }
+            return normalizedAction;
         }
 
         public class HeartbeatRequest
@@ -331,6 +464,267 @@ namespace Backend.Controllers
             public double? Latitude { get; set; }
             public double? Longitude { get; set; }
             public string? Action { get; set; }
+            public Guid? StallId { get; set; }
+        }
+
+        private Guid? ExtractStallIdFromAction(string action)
+        {
+            if (string.IsNullOrWhiteSpace(action))
+                return null;
+
+            var parts = action.Split(':', 2);
+            if (parts.Length != 2) return null;
+
+            return Guid.TryParse(parts[1], out var stallId) ? stallId : null;
+        }
+
+        private string SimplifyAction(string action)
+        {
+            if (string.IsNullOrWhiteSpace(action)) return "UNKNOWN";
+
+            foreach (var prefix in StallVisitActions)
+            {
+                if (action.StartsWith(prefix + ":"))
+                    return prefix;
+            }
+
+            return action;
+        }
+        // 12. GET All Users (Exclude Admin)
+        [HttpGet("users")]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var users = await _dbContext.Users
+                .Where(u => u.Role == "Owner")
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Username,
+                    u.Role,
+                    u.FullName,
+                    u.PhoneNumber,
+                    u.Email,
+                    u.HasPaidAccess,
+                    u.IsVerified,
+                    u.LastActive
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
+
+        // 13. DELETE User (Requires Admin and check Owner Stalls first)
+        [HttpDelete("users/{id}")]
+        public async Task<IActionResult> DeleteUser(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null) return NotFound("User not found.");
+
+            // Constraint check: If Owner, check if they still have stalls
+            if (user.Role == "Owner")
+            {
+                var hasStalls = await _dbContext.FoodStalls.AnyAsync(s => s.OwnerId == id);
+                if (hasStalls)
+                {
+                    return BadRequest("Tài khoản này là Chủ quán của địa điểm đang tồn tại. Vui lòng xóa quán ăn của chủ quán này trước khi xóa tài khoản.");
+                }
+            }
+
+            // Perform Cascade delete of user related records
+            var sessions = await _dbContext.UserSessions.Where(s => s.UserId == id).ToListAsync();
+            _dbContext.UserSessions.RemoveRange(sessions);
+
+            var telemetries = await _dbContext.UserTelemetries.Where(t => t.UserId == id).ToListAsync();
+            _dbContext.UserTelemetries.RemoveRange(telemetries);
+
+            var notifications = await _dbContext.Notifications.Where(n => n.UserId == id).ToListAsync();
+            _dbContext.Notifications.RemoveRange(notifications);
+
+            var usageLimits = await _dbContext.AiUsageLimits.Where(l => l.UserId == id).ToListAsync();
+            _dbContext.AiUsageLimits.RemoveRange(usageLimits);
+
+            var registrations = await _dbContext.OwnerRegistrations.Where(r => r.UserId == id).ToListAsync();
+            _dbContext.OwnerRegistrations.RemoveRange(registrations);
+
+            var visits = await _dbContext.StallVisits.Where(v => v.UserId == id).ToListAsync();
+            _dbContext.StallVisits.RemoveRange(visits);
+
+            var transactions = await _dbContext.PaymentTransactions.Where(t => t.UserId == id).ToListAsync();
+            _dbContext.PaymentTransactions.RemoveRange(transactions);
+
+            _dbContext.Users.Remove(user);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "User deleted successfully." });
+        }
+
+        // 14. GET All Stalls (With Owner Username)
+        [HttpGet("stalls")]
+        public async Task<IActionResult> GetAllStalls()
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var stalls = await _dbContext.FoodStalls
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    s.Address,
+                    s.Latitude,
+                    s.Longitude,
+                    s.IsVerified,
+                    s.OwnerId,
+                    OwnerUsername = _dbContext.Users.Where(u => u.Id == s.OwnerId).Select(u => u.Username).FirstOrDefault() ?? "Hệ thống"
+                })
+                .ToListAsync();
+
+            return Ok(stalls);
+        }
+
+        // 15. DELETE Stall
+        [HttpDelete("stalls/{id}")]
+        public async Task<IActionResult> DeleteStall(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var stall = await _dbContext.FoodStalls.FindAsync(id);
+            if (stall == null) return NotFound("Stall not found.");
+
+            // Cascade delete stall related records
+            var localizations = await _dbContext.Localizations.Where(l => l.FoodStallId == id).ToListAsync();
+            _dbContext.Localizations.RemoveRange(localizations);
+
+            var menuImages = await _dbContext.StallMenuImages.Where(m => m.FoodStallId == id).ToListAsync();
+            _dbContext.StallMenuImages.RemoveRange(menuImages);
+
+            var visits = await _dbContext.StallVisits.Where(v => v.FoodStallId == id).ToListAsync();
+            _dbContext.StallVisits.RemoveRange(visits);
+
+            _dbContext.FoodStalls.Remove(stall);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "Stall deleted successfully." });
+        }
+
+        // 16. GET User Detail (Requires Admin, decrypts CCCD and lists owned stalls)
+        [HttpGet("users/{id}/detail")]
+        public async Task<IActionResult> GetUserDetail(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null) return NotFound("User not found.");
+
+            // Get registration detail if any
+            var reg = await _dbContext.OwnerRegistrations
+                .FirstOrDefaultAsync(r => r.UserId == id);
+
+            string? decryptedCccd = null;
+            if (reg != null && !string.IsNullOrEmpty(reg.CccdEncrypted))
+            {
+                try
+                {
+                    decryptedCccd = EncryptionHelper.DecryptCccd(reg.CccdEncrypted);
+                }
+                catch (Exception)
+                {
+                    decryptedCccd = "[Lỗi giải mã CCCD]";
+                }
+            }
+
+            // Get stalls owned by this user
+            var stalls = await _dbContext.FoodStalls
+                .Where(s => s.OwnerId == id)
+                .Select(s => new
+                {
+                    s.Id,
+                    s.Name,
+                    s.Address,
+                    s.IsVerified
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                user.Id,
+                user.Username,
+                user.Role,
+                user.FullName,
+                user.PhoneNumber,
+                user.Email,
+                user.HasPaidAccess,
+                user.IsVerified,
+                user.LastActive,
+                Registration = reg == null ? null : new
+                {
+                    reg.Id,
+                    Cccd = decryptedCccd,
+                    reg.Status,
+                    reg.CreatedAt,
+                    reg.AdminNote
+                },
+                Stalls = stalls
+            });
+        }
+
+        // 17. GET Stall Detail (Requires Admin, shows localizations and menu images)
+        [HttpGet("stalls/{id}/detail")]
+        public async Task<IActionResult> GetStallDetail(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var stall = await _dbContext.FoodStalls.FindAsync(id);
+            if (stall == null) return NotFound("Stall not found.");
+
+            var ownerUsername = await _dbContext.Users
+                .Where(u => u.Id == stall.OwnerId)
+                .Select(u => u.Username)
+                .FirstOrDefaultAsync() ?? "Hệ thống";
+
+            var localizations = await _dbContext.Localizations
+                .Where(l => l.FoodStallId == id)
+                .Select(l => new
+                {
+                    l.Id,
+                    l.LanguageCode,
+                    l.AudioUrl
+                })
+                .ToListAsync();
+
+            var menuImages = await _dbContext.StallMenuImages
+                .Where(m => m.FoodStallId == id)
+                .Select(m => new
+                {
+                    m.Id,
+                    m.ImageUrl,
+                    m.IsMainImage
+                })
+                .ToListAsync();
+
+            return Ok(new
+            {
+                stall.Id,
+                stall.Name,
+                stall.Address,
+                stall.Latitude,
+                stall.Longitude,
+                stall.OriginalHistory,
+                stall.IsVerified,
+                stall.AdminNote,
+                OwnerUsername = ownerUsername,
+                Localizations = localizations,
+                MenuImages = menuImages
+            });
         }
 
         private async Task<User?> GetAdminUserAsync()
@@ -341,13 +735,16 @@ namespace Backend.Controllers
 
             var token = authHeader.Substring("Bearer ".Length).Trim();
             var session = await _dbContext.UserSessions
-                .Include(s => s.User)
                 .FirstOrDefaultAsync(s => s.Token == token && s.ExpiresAt > DateTime.UtcNow);
 
-            if (session?.User?.Role != "Admin")
+            if (session == null)
                 return null;
 
-            return session.User;
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == session.UserId);
+            if (user?.Role != "Admin")
+                return null;
+
+            return user;
         }
     }
 }

@@ -1081,3 +1081,96 @@ input:checked + .slider:before {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Custom Language Picker (Desktop & General) */
+.custom-lang-picker {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+}
+
+.lang-btn {
+  background: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-white);
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.lang-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--primary-color);
+}
+
+.flag-icon {
+  width: 20px;
+  height: 13px;
+  border-radius: 2px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.lang-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  background: #111827;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  z-index: 1100;
+  min-width: 150px;
+  overflow: hidden;
+  animation: langFadeIn 0.2s ease;
+}
+
+.lang-dropdown.show {
+  display: block;
+}
+
+.lang-item {
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-white);
+  transition: all 0.15s ease;
+}
+
+.lang-item:hover {
+  background: rgba(255, 122, 0, 0.1);
+  color: var(--primary-color);
+}
+
+@keyframes langFadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .lang-dropdown.mobile-show {
+    display: block !important;
+    position: fixed !important;
+    right: 70px !important;
+    top: 188px !important;
+    background: #111827 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 12px !important;
+    z-index: 1000 !important;
+    width: auto !important;
+  }
+}

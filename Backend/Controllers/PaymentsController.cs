@@ -272,9 +272,22 @@ namespace Backend.Controllers
 
         private string GetAppReturnUrl()
         {
-            return _configuration["VNPAY_APP_URL"]
-                ?? _configuration["Vnpay:AppUrl"]
-                ?? "http://localhost:3000/";
+            var configuredUrl = _configuration["VNPAY_APP_URL"]
+                ?? _configuration["Vnpay:AppUrl"];
+
+            if (!string.IsNullOrWhiteSpace(configuredUrl))
+            {
+                return configuredUrl;
+            }
+
+            if (Request != null && Request.Host.HasValue)
+            {
+                var scheme = Request.Scheme;
+                var host = Request.Host.Host;
+                return $"{scheme}://{host}:3000/";
+            }
+
+            return "http://localhost:3000/";
         }
 
         private bool VerifySignature(IQueryCollection query)

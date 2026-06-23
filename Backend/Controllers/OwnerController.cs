@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Backend.Data;
 using Backend.Models;
 using Backend.Services;
@@ -17,11 +18,13 @@ namespace Backend.Controllers
     {
         private readonly AppDbContext _dbContext;
         private readonly IAudioGenerationPipeline _audioPipeline;
+        private readonly IServiceScopeFactory _scopeFactory;
 
-        public OwnerController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
+        public OwnerController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline, IServiceScopeFactory scopeFactory)
         {
             _dbContext = dbContext;
             _audioPipeline = audioPipeline;
+            _scopeFactory = scopeFactory;
         }
 
         // 1. GET Owner's Food Stalls
@@ -94,12 +97,16 @@ namespace Backend.Controllers
             // so that Admin can listen and review them immediately
             _ = Task.Run(async () =>
             {
-                var supportedLanguages = new[] { "en", "ko", "ja", "zh", "fr" };
+                var supportedLanguages = new[] { "vi", "en", "ko", "ja", "zh" };
                 foreach (var lang in supportedLanguages)
                 {
                     try
                     {
-                        await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
                     }
                     catch (Exception)
                     {

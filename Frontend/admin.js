@@ -37,6 +37,9 @@ let visitRankingData = [];
 let selectedVisitStore = null;
 let visitChart = null;
 
+let allUsers = [];
+let allStalls = [];
+
 // Reject modal state
 let modalActionType = ''; // 'registration' or 'submission'
 let modalTargetId = null;
@@ -55,6 +58,8 @@ const registrationsTableBody = document.getElementById('registrations-table-body
 const submissionsTableBody = document.getElementById('submissions-table-body');
 const dashboardContainer = document.getElementById('dashboard-container');
 const telemetryTableBody = document.getElementById('telemetry-table-body');
+const usersTableBody = document.getElementById('users-table-body');
+const stallsTableBody = document.getElementById('stalls-table-body');
 const visitChartCanvas = document.getElementById('visit-chart-canvas');
 const visitChartTitle = document.getElementById('visit-chart-title');
 const visitChartSubtitle = document.getElementById('visit-chart-subtitle');
@@ -66,6 +71,13 @@ const noteModal = document.getElementById('note-modal');
 const modalNoteText = document.getElementById('modal-note-text');
 const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
+
+const usersSearchInput = document.getElementById('users-search-input');
+const stallsSearchInput = document.getElementById('stalls-search-input');
+const detailModal = document.getElementById('detail-modal');
+const detailModalTitle = document.getElementById('detail-modal-title');
+const detailModalBody = document.getElementById('detail-modal-body');
+const detailModalCloseBtn = document.getElementById('detail-modal-close-btn');
 
 // Initialize Admin Portal
 window.addEventListener('DOMContentLoaded', () => {
@@ -126,6 +138,34 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Set interval to update metrics and live tracking map coordinates
   setInterval(refreshDashboardData, 10000);
+
+  // Detail Modal Close
+  detailModalCloseBtn?.addEventListener('click', () => {
+    detailModal.style.display = 'none';
+  });
+
+  // Users Search Input
+  usersSearchInput?.addEventListener('input', () => {
+    const query = usersSearchInput.value.toLowerCase().trim();
+    const filtered = allUsers.filter(u =>
+      (u.username && u.username.toLowerCase().includes(query)) ||
+      (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
+      (u.phoneNumber && u.phoneNumber.toLowerCase().includes(query))
+    );
+    renderUsersList(filtered);
+  });
+
+  // Stalls Search Input
+  stallsSearchInput?.addEventListener('input', () => {
+    const query = stallsSearchInput.value.toLowerCase().trim();
+    const filtered = allStalls.filter(s =>
+      (s.name && s.name.toLowerCase().includes(query)) ||
+      (s.address && s.address.toLowerCase().includes(query)) ||
+      (s.ownerUsername && s.ownerUsername.toLowerCase().includes(query))
+    );
+    renderStallsList(filtered);
+  });
 });
 
 // Refresh all live dashboard statistics
@@ -140,6 +180,10 @@ async function refreshDashboardData() {
     await loadSubmissions();
   } else if (activeTab === 'visits-dashboard') {
     await loadDashboardStats();
+  } else if (activeTab === 'users-management') {
+    await loadUsers();
+  } else if (activeTab === 'stalls-management') {
+    await loadAllStalls();
   } else if (activeTab === 'telemetry') {
     await loadTelemetryLogs();
   }
@@ -672,3 +716,349 @@ async function handleModalConfirm() {
     console.error('Reject failed:', err);
   }
 }
+
+// --- Users Management ---
+async function loadUsers() {
+  if (!usersTableBody) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/users`, {
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      allUsers = await response.json();
+      if (usersSearchInput) {
+        usersSearchInput.value = '';
+      }
+      renderUsersList(allUsers);
+    }
+  } catch (err) {
+    console.error('Load users failed:', err);
+    usersTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu người dùng.</td></tr>';
+  }
+}
+
+function renderUsersList(users) {
+  if (!usersTableBody) return;
+  usersTableBody.innerHTML = '';
+
+  if (users.length === 0) {
+    usersTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-gray);">Không tìm thấy tài khoản nào.</td></tr>';
+    return;
+  }
+
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    const lastActiveDate = u.lastActive ? new Date(u.lastActive).toLocaleString('vi-VN') : '-';
+    const paidStatus = u.hasPaidAccess ? '<span style="color:#00ff66;">Đã thanh toán</span>' : '<span style="color:var(--text-gray);">Chưa thanh toán</span>';
+    const verifiedStatus = u.isVerified ? '<span style="color:#00ff66;">Đã kích hoạt</span>' : '<span style="color:#ff3333;">Chưa kích hoạt</span>';
+
+    tr.innerHTML = `
+      <td><b>${escapeHtml(u.username)}</b></td>
+      <td>${escapeHtml(u.fullName || '-')}</td>
+      <td><span class="badge" style="padding:2px 6px;border-radius:4px;font-size:11px;background:${u.role === 'Owner' ? '#8b5cf6' : '#6b7280'};color:#fff;">${u.role}</span></td>
+      <td>${escapeHtml(u.phoneNumber || '-')}</td>
+      <td>${escapeHtml(u.email || '-')}</td>
+      <td>${paidStatus}</td>
+      <td>${verifiedStatus}</td>
+      <td>${lastActiveDate}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn" onclick="viewUserDetails('${u.id}')" style="background:#512bd4;font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">Chi tiết</button>
+          <button class="btn btn-danger" onclick="deleteUser('${u.id}')" style="background:#ef4444;font-size:11px;padding:4px 8px;border-radius:4px;">Xóa</button>
+        </div>
+      </td>
+    `;
+    usersTableBody.appendChild(tr);
+  });
+}
+
+window.deleteUser = async (id) => {
+  const user = allUsers.find(u => u.id === id);
+  const stallNames = (user && user.stallNames && user.stallNames.length > 0) 
+    ? user.stallNames.join(', ') 
+    : '';
+
+  let confirmMsg = 'Bạn có chắc chắn muốn xóa tài khoản người dùng này? Hành động này sẽ xóa vĩnh viễn các thông tin liên quan của họ.';
+  if (stallNames) {
+    confirmMsg = `Tài khoản này đang là chủ của các cửa hàng sau: ${stallNames}. Bạn cần phải xóa các cửa hàng này trước khi xóa tài khoản. Bạn có chắc chắn muốn tiếp tục thử xóa không?`;
+  }
+
+  if (!confirm(confirmMsg)) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      alert('Xóa tài khoản thành công.');
+      refreshDashboardData();
+    } else {
+      const errText = await response.text();
+      alert('Không thể xóa tài khoản: ' + errText);
+    }
+  } catch (err) {
+    console.error('Delete user failed:', err);
+    alert('Lỗi kết nối khi xóa tài khoản.');
+  }
+};
+
+// --- Stalls Management ---
+async function loadAllStalls() {
+  if (!stallsTableBody) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/stalls`, {
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      allStalls = await response.json();
+      if (stallsSearchInput) {
+        stallsSearchInput.value = '';
+      }
+      renderStallsList(allStalls);
+    }
+  } catch (err) {
+    console.error('Load stalls failed:', err);
+    stallsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu quán ăn.</td></tr>';
+  }
+}
+
+function renderStallsList(stalls) {
+  if (!stallsTableBody) return;
+  stallsTableBody.innerHTML = '';
+
+  if (stalls.length === 0) {
+    stallsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-gray);">Không tìm thấy quán ăn nào.</td></tr>';
+    return;
+  }
+
+  stalls.forEach(s => {
+    const tr = document.createElement('tr');
+    const status = s.isVerified ? '<span style="color:#00ff66;">Đã duyệt</span>' : '<span style="color:#ff9d42;">Chờ duyệt</span>';
+
+    tr.innerHTML = `
+      <td><b>${escapeHtml(s.name)}</b></td>
+      <td>${escapeHtml(s.address)}</td>
+      <td>${s.latitude.toFixed(6)}</td>
+      <td>${s.longitude.toFixed(6)}</td>
+      <td>${escapeHtml(s.ownerUsername)}</td>
+      <td>${status}</td>
+      <td>
+        <div style="display:flex;gap:6px;">
+          <button class="btn" onclick="viewStallDetails('${s.id}')" style="background:#512bd4;font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">Chi tiết</button>
+          <button class="btn btn-danger" onclick="deleteStall('${s.id}')" style="background:#ef4444;font-size:11px;padding:4px 8px;border-radius:4px;">Xóa</button>
+        </div>
+      </td>
+    `;
+    stallsTableBody.appendChild(tr);
+  });
+}
+
+window.deleteStall = async (id) => {
+  if (!confirm('Bạn có chắc chắn muốn xóa địa điểm quán ăn này? Hành động này sẽ xóa vĩnh viễn các bản dịch, audio, và lượt ghé liên quan.')) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/stalls/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      alert('Xóa địa điểm quán ăn thành công.');
+      refreshDashboardData();
+    } else {
+      const errText = await response.text();
+      alert('Không thể xóa địa điểm: ' + errText);
+    }
+  } catch (err) {
+    console.error('Delete stall failed:', err);
+    alert('Lỗi kết nối khi xóa địa điểm.');
+  }
+};
+
+window.viewUserDetails = async (id) => {
+  if (!detailModal || !detailModalTitle || !detailModalBody) return;
+
+  detailModalTitle.innerText = "Chi Tiết Tài Khoản Chủ Quán";
+  detailModalBody.innerHTML = '<div style="text-align:center;color:var(--text-gray);padding:20px;">Đang tải chi tiết...</div>';
+  detailModal.style.display = 'flex';
+
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}/detail`, {
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      const data = await response.json();
+
+      let regInfo = '<div style="color:var(--text-gray);">Không có thông tin đăng ký CCCD.</div>';
+      if (data.registration) {
+        regInfo = `
+          <div style="background:rgba(255,255,255,0.03);padding:12px;border:1px solid var(--border-color);border-radius:8px;margin-top:5px;">
+            <p style="margin-bottom:6px;"><b>Số CCCD:</b> <code>${escapeHtml(data.registration.cccd || 'Không tìm thấy')}</code></p>
+            <p style="margin-bottom:6px;"><b>Ngày đăng ký:</b> ${new Date(data.registration.createdAt).toLocaleString('vi-VN')}</p>
+            <p style="margin-bottom:6px;"><b>Trạng thái duyệt:</b> <span style="color:${data.registration.status === 'Approved' ? '#00ff66' : '#ff3333'};font-weight:bold;">${data.registration.status}</span></p>
+            <p style="margin-bottom:0;"><b>Ghi chú Admin:</b> <i>${escapeHtml(data.registration.adminNote || 'Không có')}</i></p>
+          </div>
+        `;
+      }
+
+      let stallsInfo = '<div style="color:var(--text-gray);padding:5px 0;">Không có quán ăn nào thuộc sở hữu.</div>';
+      if (data.stalls && data.stalls.length > 0) {
+        stallsInfo = `
+          <ul style="padding-left:20px;margin-top:5px;margin-bottom:0;">
+            ${data.stalls.map(s => `
+              <li style="margin-bottom:6px;">
+                <b>${escapeHtml(s.name)}</b> - ${escapeHtml(s.address)} 
+                (${s.isVerified ? '<span style="color:#00ff66;">Đã duyệt</span>' : '<span style="color:#ff9d42;">Chờ duyệt</span>'})
+              </li>
+            `).join('')}
+          </ul>
+        `;
+      }
+
+      const activeTime = data.lastActive ? new Date(data.lastActive).toLocaleString('vi-VN') : '-';
+
+      detailModalBody.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:20px;background:rgba(255,255,255,0.02);padding:15px;border-radius:8px;border:1px solid var(--border-color);">
+          <div>
+            <p style="margin-bottom:8px;"><b>Tên đăng nhập:</b> ${escapeHtml(data.username)}</p>
+            <p style="margin-bottom:8px;"><b>Họ và Tên:</b> ${escapeHtml(data.fullName || '-')}</p>
+            <p style="margin-bottom:8px;"><b>Vai trò:</b> <span style="background:#8b5cf6;padding:2px 6px;border-radius:4px;font-size:11px;color:#fff;">${data.role}</span></p>
+            <p style="margin-bottom:0;"><b>Hoạt động cuối:</b> ${activeTime}</p>
+          </div>
+          <div>
+            <p style="margin-bottom:8px;"><b>Số điện thoại:</b> ${escapeHtml(data.phoneNumber || '-')}</p>
+            <p style="margin-bottom:8px;"><b>Email:</b> ${escapeHtml(data.email || '-')}</p>
+            <p style="margin-bottom:8px;"><b>Trạng thái:</b> ${data.isVerified ? '<span style="color:#00ff66;">Đã kích hoạt</span>' : '<span style="color:#ff3333;">Chưa kích hoạt</span>'}</p>
+            <p style="margin-bottom:0;"><b>Thanh toán:</b> ${data.hasPaidAccess ? '<span style="color:#00ff66;">Đã thanh toán</span>' : '<span style="color:var(--text-gray);">Chưa thanh toán</span>'}</p>
+          </div>
+        </div>
+        
+        <div style="margin-bottom:20px;">
+          <h4 style="color:var(--primary-color);font-size:14px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">Thông Tin Hồ Sơ Đăng Ký</h4>
+          ${regInfo}
+        </div>
+
+        <div>
+          <h4 style="color:var(--primary-color);font-size:14px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">Danh Sách Quán Ăn Sở Hữu</h4>
+          ${stallsInfo}
+        </div>
+      `;
+    } else {
+      const errText = await response.text();
+      detailModalBody.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi: ${escapeHtml(errText)}</div>`;
+    }
+  } catch (err) {
+    console.error('Fetch user detail failed:', err);
+    detailModalBody.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi kết nối máy chủ.</div>';
+  }
+};
+
+window.viewStallDetails = async (id) => {
+  if (!detailModal || !detailModalTitle || !detailModalBody) return;
+
+  detailModalTitle.innerText = "Chi Tiết Quán Ăn";
+  detailModalBody.innerHTML = '<div style="text-align:center;color:var(--text-gray);padding:20px;">Đang tải chi tiết...</div>';
+  detailModal.style.display = 'flex';
+
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/stalls/${id}/detail`, {
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      const data = await response.json();
+
+      let locsInfo = '<div style="color:var(--text-gray);">Chưa có bản dịch nào.</div>';
+      if (data.localizations && data.localizations.length > 0) {
+        locsInfo = `
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+            ${data.localizations.map(l => {
+              const langName = l.languageCode.toUpperCase() === 'VI' ? 'Tiếng Việt' :
+                               l.languageCode.toUpperCase() === 'EN' ? 'English' :
+                               l.languageCode.toUpperCase() === 'JA' ? '日本語' :
+                               l.languageCode.toUpperCase() === 'KO' ? '한국어' :
+                               l.languageCode.toUpperCase() === 'ZH' ? '中文' : l.languageCode.toUpperCase();
+              
+              const audioPlayerHtml = l.audioUrl 
+                ? `<audio controls src="${l.audioUrl.startsWith('http') ? l.audioUrl : (defaultServerUrl + l.audioUrl)}" style="width: 100%; max-width: 280px; height: 32px; margin-top: 4px;"></audio>` 
+                : `<span style="color: var(--text-gray); font-size: 11px;">(Chưa có file thuyết minh âm thanh)</span>`;
+                
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+                    <strong style="color: var(--primary-color); font-size: 12px;">🌍 ${langName}</strong>
+                  </div>
+                  <div style="font-size: 12px; color: #ddd; white-space: pre-wrap; line-height: 1.4; max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">${escapeHtml(l.translatedText || '(Chưa dịch)')}</div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    ${audioPlayerHtml}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      let imagesInfo = '<div style="color:var(--text-gray);padding:5px 0;">Không có ảnh thực đơn.</div>';
+      if (data.menuImages && data.menuImages.length > 0) {
+        imagesInfo = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:10px;margin-top:5px;">
+            ${data.menuImages.map(img => `
+              <div style="position:relative;border:1px solid var(--border-color);border-radius:6px;overflow:hidden;aspect-ratio:1;">
+                <img src="${escapeHtml(img.imageUrl)}" style="width:100%;height:100%;object-fit:cover;">
+                ${img.isMainImage ? '<span style="position:absolute;top:2px;left:2px;background:#FF7A00;font-size:8px;padding:1px 3px;border-radius:3px;color:#fff;">Chính</span>' : ''}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      detailModalBody.innerHTML = `
+        <div style="margin-bottom:15px;background:rgba(255,255,255,0.02);padding:15px;border-radius:8px;border:1px solid var(--border-color);">
+          <p style="margin-bottom:8px;"><b>Tên quán ăn:</b> <span style="font-size:15px;font-weight:bold;color:var(--primary-color);">${escapeHtml(data.name)}</span></p>
+          <p style="margin-bottom:8px;"><b>Địa chỉ:</b> ${escapeHtml(data.address)}</p>
+          <p style="margin-bottom:8px;"><b>Vị trí GPS:</b> <code>${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}</code></p>
+          <p style="margin-bottom:8px;"><b>Chủ sở hữu:</b> <b>${escapeHtml(data.ownerUsername)}</b></p>
+          <p style="margin-bottom:8px;"><b>Trạng thái:</b> ${data.isVerified ? '<span style="color:#00ff66;font-weight:bold;">Đã duyệt công khai</span>' : '<span style="color:#ff9d42;font-weight:bold;">Đang chờ duyệt</span>'}</p>
+          <p style="margin-bottom:0;"><b>Ghi chú nội bộ Admin:</b> <i>${escapeHtml(data.adminNote || 'Không có')}</i></p>
+        </div>
+
+        <div style="margin-bottom:15px;">
+          <h4 style="color:var(--primary-color);font-size:13px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">Thuyết Minh Nguồn (Tiếng Việt)</h4>
+          <div style="background:rgba(255,255,255,0.03);padding:10px;border-radius:6px;border:1px solid var(--border-color);max-height:120px;overflow-y:auto;white-space:pre-wrap;font-size:12px;color:var(--text-gray);">${escapeHtml(data.originalHistory || 'Chưa cập nhật thuyết minh.')}</div>
+        </div>
+
+        <div style="margin-bottom:15px;">
+          <h4 style="color:var(--primary-color);font-size:13px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">Các Bản Dịch Đa Ngôn Ngữ</h4>
+          <div style="padding-top:4px;">${locsInfo}</div>
+        </div>
+
+        <div>
+          <h4 style="color:var(--primary-color);font-size:13px;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">Hình Ảnh Thực Đơn & Cửa Hàng</h4>
+          ${imagesInfo}
+        </div>
+      `;
+    } else {
+      const errText = await response.text();
+      detailModalBody.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi: ${escapeHtml(errText)}</div>`;
+    }
+  } catch (err) {
+    console.error('Fetch stall detail failed:', err);
+    detailModalBody.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi kết nối máy chủ.</div>';
+  }
+};

@@ -67,24 +67,42 @@ namespace Backend.Controllers
                 string translatedText;
                 string audioUrl;
 
+                var currentHash = ComputeMd5Hash(stall.OriginalHistory ?? string.Empty);
+
                 if (lang == "vi")
                 {
                     translatedText = stall.OriginalHistory;
-                    audioUrl = localizationByStall.TryGetValue(stall.Id, out var viLoc)
-                        ? viLoc.AudioUrl
+                    
+                    var hasViLoc = localizationByStall.TryGetValue(stall.Id, out var viLoc);
+                    var isOutdated = hasViLoc && viLoc.TextHash != currentHash;
+                    
+                    audioUrl = hasViLoc && !isOutdated && !string.IsNullOrEmpty(viLoc.AudioUrl)
+                        ? $"{viLoc.AudioUrl}?v={viLoc.TextHash ?? Guid.NewGuid().ToString("N")}"
                         : string.Empty;
-                }
-                else if (localizationByStall.TryGetValue(stall.Id, out var cachedLoc) &&
-                         !string.IsNullOrWhiteSpace(cachedLoc.TranslatedText))
-                {
-                    translatedText = cachedLoc.TranslatedText;
-                    audioUrl = cachedLoc.AudioUrl ?? string.Empty;
+
+                    if (!hasViLoc || isOutdated)
+                    {
+                        missingStallIds.Add(stall.Id);
+                    }
                 }
                 else
                 {
-                    translatedText = string.Empty;
-                    audioUrl = string.Empty;
-                    missingStallIds.Add(stall.Id);
+                    var hasLoc = localizationByStall.TryGetValue(stall.Id, out var cachedLoc);
+                    var isOutdated = hasLoc && cachedLoc.TextHash != currentHash;
+
+                    if (hasLoc && !isOutdated && !string.IsNullOrWhiteSpace(cachedLoc.TranslatedText))
+                    {
+                        translatedText = cachedLoc.TranslatedText;
+                        audioUrl = !string.IsNullOrEmpty(cachedLoc.AudioUrl)
+                            ? $"{cachedLoc.AudioUrl}?v={cachedLoc.TextHash ?? Guid.NewGuid().ToString("N")}"
+                            : string.Empty;
+                    }
+                    else
+                    {
+                        translatedText = string.Empty;
+                        audioUrl = string.Empty;
+                        missingStallIds.Add(stall.Id);
+                    }
                 }
 
                 var metadata = _metadataTranslation.GetCached(stall.Id, stall.Name, stall.Address, lang);
@@ -185,7 +203,11 @@ namespace Backend.Controllers
                 {
                     try
                     {
-                        await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
                     }
                     catch (Exception)
                     {
@@ -222,7 +244,11 @@ namespace Backend.Controllers
                 {
                     try
                     {
-                        await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
                     }
                     catch (Exception)
                     {
@@ -254,6 +280,20 @@ namespace Backend.Controllers
         private bool FoodStallExists(Guid id)
         {
             return _dbContext.FoodStalls.Any(e => e.Id == id);
+        }
+
+        private string ComputeMd5Hash(string input)
+        {
+            if (string.IsNullOrEmpty(input)) return string.Empty;
+            byte[] inputBytes = System.Text.Encoding.UTF8.GetBytes(input);
+            byte[] hashBytes = System.Security.Cryptography.MD5.HashData(inputBytes);
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var b in hashBytes)
+            {
+                sb.Append(b.ToString("x2"));
+            }
+            return sb.ToString();
         }
     }
 }

@@ -45,8 +45,8 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Exclude API calls and MP3 files from service worker caching
-  if (url.pathname.includes('/api/') || url.pathname.endsWith('.mp3')) {
+  // Exclude API calls from service worker caching
+  if (url.pathname.includes('/api/')) {
     return;
   }
 
@@ -78,9 +78,11 @@ self.addEventListener('fetch', event => {
       return fetch(event.request).then(networkResponse => {
         if (
           event.request.method === 'GET' &&
-          (url.hostname.includes('tile.openstreetmap.org') || 
-           url.pathname.includes('/tile/') ||
-           url.pathname.includes('/images/'))
+          (url.hostname.includes('tile.openstreetmap.org') ||
+            url.pathname.includes('/tile/') ||
+            url.pathname.includes('/images/') ||
+            url.pathname.endsWith('.mp3') ||
+            url.pathname.includes('/audio/'))
         ) {
           return caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, networkResponse.clone());

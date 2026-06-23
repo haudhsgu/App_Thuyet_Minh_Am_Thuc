@@ -1523,7 +1523,7 @@ async function onSync(options = {}) {
     await db.saveStalls(stalls);
     await loadStallPins();
 
-    if (pendingTranslations > 0 && langCode !== 'vi') {
+    if (pendingTranslations > 0) {
       syncStatus.style.color = '#FF7A00';
       syncStatus.dataset.state = 'partial';
       syncStatus.innerText = trans.syncStatusPartial
@@ -2093,21 +2093,34 @@ async function recordUserAction(foodStallId, actionType) {
 
 
 // --- Splash Intro Logic ---
-document.addEventListener('DOMContentLoaded', () => {
+const runSplashIntro = () => {
+  console.log('runSplashIntro called');
   const splash = document.getElementById('splash-intro');
+  console.log('splash element found:', splash);
   if (splash) {
     setTimeout(() => {
+      console.log('Initiating splash fade out...');
       splash.style.opacity = '0';
       splash.style.visibility = 'hidden';
-      setTimeout(() => splash.remove(), 800);
+      setTimeout(() => {
+        console.log('Removing splash screen from DOM.');
+        splash.remove();
+      }, 800);
     }, 2800);
   }
-});
+};
+if (document.readyState === 'loading') {
+  console.log('Document still loading, registering DOMContentLoaded listener for splash.');
+  document.addEventListener('DOMContentLoaded', runSplashIntro);
+} else {
+  console.log('Document already loaded, running splash intro immediately.');
+  runSplashIntro();
+}
 
 // ==============================================================
 // MOBILE PWA UI LOGIC
 // ==============================================================
-document.addEventListener('DOMContentLoaded', () => {
+const runMobilePwaUiLogic = () => {
   const navItems = document.querySelectorAll('.mobile-bottom-nav .nav-item');
   const stallPanel = document.querySelector('.stall-panel');
   const chatPanel = document.querySelector('.chat-panel');
@@ -2174,4 +2187,9 @@ document.addEventListener('DOMContentLoaded', () => {
       chatPanel.classList.remove('mobile-active');
     });
   }
-});
+};
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', runMobilePwaUiLogic);
+} else {
+  runMobilePwaUiLogic();
+}

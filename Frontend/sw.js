@@ -1,8 +1,8 @@
-const CACHE_NAME = 'oc-quan4-cache-v12';
+const CACHE_NAME = 'oc-quan4-cache-v14';
 const ASSETS_TO_CACHE = [
   './index.html',
-  './style.css?v=2',
-  './app.js?v=14',
+  './style.css?v=4',
+  './app.js?v=18',
   './db.js',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
@@ -45,8 +45,8 @@ self.addEventListener('message', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Exclude API calls and MP3 files from service worker caching
-  if (url.pathname.includes('/api/') || url.pathname.endsWith('.mp3')) {
+  // Exclude API calls from service worker caching (keep MP3 caching enabled)
+  if (url.pathname.includes('/api/')) {
     return;
   }
 
@@ -80,7 +80,9 @@ self.addEventListener('fetch', event => {
           event.request.method === 'GET' &&
           (url.hostname.includes('tile.openstreetmap.org') || 
            url.pathname.includes('/tile/') ||
-           url.pathname.includes('/images/'))
+           url.pathname.includes('/images/') ||
+           url.pathname.includes('/audio/') ||
+           url.pathname.endsWith('.mp3'))
         ) {
           return caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, networkResponse.clone());

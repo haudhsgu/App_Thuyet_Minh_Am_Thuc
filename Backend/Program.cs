@@ -95,35 +95,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<AppDbContext>();
-
-        // Auto-detect if database needs a rebuild by checking if a new table exists
-        bool dbOk = false;
-        try
-        {
-            _ = context.OwnerRegistrations.Any();
-            _ = context.StallVisits.Any();
-            _ = context.StallMenuImages.Any();
-            dbOk = true;
-        }
-        catch
-        {
-            // Table doesn't exist, we need to rebuild
-            Console.WriteLine("New database schema detected. Rebuilding database...");
-        }
-
-        if (!dbOk)
-        {
-            context.Database.EnsureDeleted();
-            context.Database.EnsureCreated();
-        }
-        else
-        {
-            context.Database.EnsureCreated();
-        }
-
-        await EnsureUserProfileColumnsAsync(context);
-        await EnsureUserBillingColumnsAsync(context);
-        await EnsureMenuAndVisitTablesAsync(context);
+        context.Database.EnsureCreated();
 
         // Seed Default Admin User if not exists
         if (!context.Users.Any(u => u.Role == "Admin"))
@@ -156,30 +128,6 @@ using (var scope = app.Services.CreateScope())
 
             context.SaveChanges();
         }
-        // Seed sample data for Vĩnh Khánh Street, District 4
-        var seedFoodStalls = LoadSeedFoodStalls(app.Environment.ContentRootPath);
-
-        foreach (var seed in seedFoodStalls)
-        {
-            var existing = context.FoodStalls.FirstOrDefault(f => f.Id == seed.Id);
-            if (existing == null)
-            {
-                context.FoodStalls.Add(seed);
-            }
-            else
-            {
-                existing.Name = seed.Name;
-                existing.Address = seed.Address;
-                existing.Latitude = seed.Latitude;
-                existing.Longitude = seed.Longitude;
-                existing.OriginalHistory = seed.OriginalHistory;
-                existing.IsVerified = seed.IsVerified;
-            }
-        }
-
-        context.SaveChanges();
-
-        Console.WriteLine("Sample food stalls seeded/updated successfully.");
     }
     catch (Exception ex)
     {

@@ -521,9 +521,10 @@
       <span>BẢNG ĐIỀU KHIỂN QUẢN TRỊ VIÊN (ADMIN DASHBOARD)</span>
     </div>
 
-    <div class="config-section">
+    <div class="config-section" style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn" id="generate-all-btn" style="background: var(--primary-color); font-size: 12px; padding: 6px 14px; font-weight: 600;">⚙️ Tạo toàn bộ Audio</button>
       <span id="admin-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray);">Admin</span>
-      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 10px;">Đăng xuất</button>
+      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px;">Đăng xuất</button>
     </div>
   </header>
 
@@ -562,6 +563,8 @@
       <button class="tab-btn" data-tab="registrations">📝 Duyệt Đăng Ký Chủ Quán</button>
       <button class="tab-btn" data-tab="submissions">✍ Duyệt Thuyết Minh</button>
       <button class="tab-btn" data-tab="visits-dashboard">📊 Lượt Ghé Thăm</button>
+      <button class="tab-btn" data-tab="users-management">👥 Quản Lý Tài Khoản</button>
+      <button class="tab-btn" data-tab="stalls-management">🏪 Quản Lý Quán Ăn</button>
       <button class="tab-btn" data-tab="telemetry">📋 Nhật Ký Hệ Thống</button>
     </div>
 
@@ -704,6 +707,68 @@
       </div>
     </div>
 
+    <!-- 6. Users Management -->
+    <div class="tab-content" id="users-management">
+      <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
+        <b>Quản lý tài khoản:</b> Xem danh sách tài khoản người dùng và thực hiện xóa tài khoản nếu cần thiết (lưu ý: tài khoản chủ quán phải được xóa địa điểm trước khi xóa tài khoản).
+      </div>
+      <div style="margin-bottom: 15px;">
+        <input type="text" id="users-search-input" placeholder="Tìm tài khoản (username, họ tên, email, sđt)..." style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+      </div>
+      <div class="admin-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên đăng nhập</th>
+              <th>Họ và Tên</th>
+              <th>Vai trò</th>
+              <th>Số điện thoại</th>
+              <th>Email</th>
+              <th>Thanh toán</th>
+              <th>Trạng thái</th>
+              <th>Hoạt động cuối</th>
+              <th style="width: 160px;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr>
+              <td colspan="9" style="text-align: center; color: var(--text-gray);">Đang tải danh sách tài khoản...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 7. Stalls Management -->
+    <div class="tab-content" id="stalls-management">
+      <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
+        <b>Quản lý địa điểm quán ăn:</b> Xem danh sách các quán ăn trong hệ thống và thực hiện xóa quán ăn nếu cần thiết.
+      </div>
+      <div style="margin-bottom: 15px;">
+        <input type="text" id="stalls-search-input" placeholder="Tìm quán ăn (tên quán, địa chỉ, chủ quán)..." style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+      </div>
+      <div class="admin-table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên Quán</th>
+              <th>Địa chỉ</th>
+              <th>Vĩ độ</th>
+              <th>Kinh độ</th>
+              <th>Chủ quán</th>
+              <th>Trạng thái</th>
+              <th style="width: 160px;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="stalls-table-body">
+            <tr>
+              <td colspan="7" style="text-align: center; color: var(--text-gray);">Đang tải danh sách quán ăn...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </main>
 
   <!-- Reject Note Modal Dialog -->
@@ -719,6 +784,21 @@
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
         <button class="btn" id="modal-cancel-btn" style="background: #3e3e50; font-size: 12px; padding: 8px 16px;">Hủy</button>
         <button class="btn" id="modal-confirm-btn" style="background: #ef4444; font-size: 12px; padding: 8px 16px;">Xác nhận Từ chối</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal Dialog -->
+  <div class="note-modal" id="detail-modal" style="display: none;">
+    <div class="modal-content" style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left; padding: 25px;">
+      <h3 id="detail-modal-title" style="color: var(--primary-color); margin-bottom: 18px; font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Thông tin chi tiết</h3>
+      
+      <div id="detail-modal-body" style="font-size: 13px; color: var(--text-white); line-height: 1.6; margin-bottom: 20px;">
+        <!-- Loaded Dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn" id="detail-modal-close-btn" style="background: #3e3e50; font-size: 12px; padding: 8px 18px;">Đóng</button>
       </div>
     </div>
   </div>

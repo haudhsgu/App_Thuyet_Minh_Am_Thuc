@@ -18,6 +18,7 @@
       background-image: radial-gradient(circle at 10% 20%, rgba(255, 122, 0, 0.05) 0%, transparent 40%),
         radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
     }
+
     .header-panel {
       position: sticky;
       top: 0;
@@ -81,9 +82,11 @@
       justify-content: space-between;
       align-items: center;
     }
+
     .form-group {
       margin-bottom: 20px;
     }
+
     .form-group label {
       display: block;
       margin-bottom: 8px;
@@ -149,6 +152,7 @@
       max-height: 400px;
       overflow-y: auto;
     }
+
     .notify-item {
       padding: 12px 16px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -159,6 +163,7 @@
     .notify-item:last-child {
       border-bottom: none;
     }
+
     .notify-item .time {
       font-size: 10px;
       color: var(--text-gray);
@@ -209,21 +214,27 @@
         <span style="font-size: 20px;">🔔</span>
         <span class="notify-badge" id="notify-count" style="display: none;">0</span>
         <div class="notify-dropdown" id="notify-list">
-          <div style="padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 13px;">Thông báo</div>
+          <div
+            style="padding: 12px 16px; font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 13px;">
+            Thông báo</div>
           <div id="notifications-content">
-            <div class="notify-item" style="color: var(--text-gray); text-align: center;">Không có thông báo mới nào.</div>
+            <div class="notify-item" style="color: var(--text-gray); text-align: center;">Không có thông báo mới nào.
+            </div>
           </div>
         </div>
       </div>
 
-      <span id="owner-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray); margin-left: 10px;">Chủ quán</span>
+      <span id="owner-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray); margin-left: 10px;">Chủ
+        quán</span>
 
-      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 6px;">Đăng xuất</button>
+      <button class="btn" id="logout-btn"
+        style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 6px;">Đăng xuất</button>
     </div>
   </header>
 
   <div class="owner-tabs" style="max-width: 1200px; margin: 18px auto 0; padding: 0 20px;">
-    <button class="tab-btn active" data-tab="owner-main" style="padding: 10px 14px; margin-right: 8px;">🏠 Trang Chủ</button>
+    <button class="tab-btn active" data-tab="owner-main" style="padding: 10px 14px; margin-right: 8px;">🏠 Trang
+      Chủ</button>
     <button class="tab-btn" data-tab="owner-stats" style="padding: 10px 14px;">📊 Thống Kê</button>
   </div>
   <main class="owner-layout">
@@ -231,7 +242,8 @@
     <div class="card-panel">
       <div class="panel-title">
         <span>Thông tin quán ăn của bạn</span>
-        <span id="stall-status" style="font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">Trạng thái</span>
+        <span id="stall-status" style="font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">Trạng
+          thái</span>
       </div>
 
       <form id="stall-form">
@@ -266,25 +278,30 @@
           <textarea id="description" class="form-control" style="height: 120px; resize: vertical;" required></textarea>
         </div>
 
-        <button type="submit" class="btn" style="width: 100%; padding: 14px; font-size: 14px;">Lưu & Gửi phê duyệt thuyết minh</button>
-        <div id="submit-feedback" style="text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600;"></div>
+        <button type="submit" class="btn" style="width: 100%; padding: 14px; font-size: 14px;">Lưu & Gửi phê duyệt
+          thuyết minh</button>
+        <div id="submit-feedback" style="text-align: center; margin-top: 10px; font-size: 13px; font-weight: 600;">
+        </div>
       </form>
 
       <div style="margin-top: 30px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px;">
         <div class="panel-title" style="margin-bottom: 15px;">
           <span>Quản lý Menu quán ăn</span>
         </div>
-        <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 15px;">Tải lên hình ảnh chụp Menu của quán để khách du lịch dễ dàng tham khảo.</p>
-        
+        <p style="font-size: 13px; color: var(--text-gray); margin-bottom: 15px;">Tải lên hình ảnh chụp Menu của quán để
+          khách du lịch dễ dàng tham khảo.</p>
+
         <!-- Menu Images Grid -->
-        <div id="owner-menu-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-bottom: 15px;">
+        <div id="owner-menu-grid"
+          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px; margin-bottom: 15px;">
           <!-- Images will be rendered here -->
         </div>
 
         <!-- Upload Menu Input -->
         <div style="display: flex; gap: 10px; align-items: center;">
           <input type="file" id="menu-upload-input" accept="image/jpeg, image/png, image/webp" style="display: none;">
-          <button type="button" class="btn" id="menu-upload-btn" style="background: #3b82f6; font-size: 13px; padding: 8px 16px;">+ Thêm ảnh Menu</button>
+          <button type="button" class="btn" id="menu-upload-btn"
+            style="background: #3b82f6; font-size: 13px; padding: 8px 16px;">+ Thêm ảnh Menu</button>
           <span id="menu-upload-status" style="font-size: 12px; color: var(--text-gray);"></span>
         </div>
       </div>
@@ -299,7 +316,8 @@
         </div>
 
         <p style="font-size: 13px; color: var(--text-gray); line-height: 1.4; margin-bottom: 20px;">
-          Bạn có thể nhờ AI tối ưu hóa thuyết minh quán ăn của mình để hấp dẫn hơn. AI sẽ viết lại mô tả với phong cách hướng dẫn viên sinh động (200-300 từ) dựa trên thông tin gốc mà không bịa thêm dữ liệu.
+          Bạn có thể nhờ AI tối ưu hóa thuyết minh quán ăn của mình để hấp dẫn hơn. AI sẽ viết lại mô tả với phong cách
+          hướng dẫn viên sinh động (200-300 từ) dựa trên thông tin gốc mà không bịa thêm dữ liệu.
         </p>
 
         <button class="btn ai-btn" id="ai-enhance-btn">
@@ -311,8 +329,10 @@
         </div>
       </div>
 
-      <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <button class="btn ai-btn" id="ai-apply-btn" style="background: #10b981; font-size: 12px; padding: 6px 12px; width: auto; display: none;">
+      <div
+        style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+        <button class="btn ai-btn" id="ai-apply-btn"
+          style="background: #10b981; font-size: 12px; padding: 6px 12px; width: auto; display: none;">
           ✓ Áp dụng mô tả này
         </button>
         <span id="ai-status-text" style="font-size: 11px; color: var(--text-gray);"></span>
@@ -321,12 +341,14 @@
   </main>
 
   <!-- Owner stats tab (iframe) -->
-  <div class="tab-content" id="owner-stats" style="width: 100%; max-width: 1200px; margin: 20px auto; padding: 0px 20px; display: none; box-sizing: border-box;">
+  <div class="tab-content" id="owner-stats"
+    style="width: 100%; max-width: 1200px; margin: 20px auto; padding: 0px 20px; display: none; box-sizing: border-box;">
     <div class="card-panel" style="padding: 0; width: 100%;">
-        <iframe id="owner-stats-iframe" src="owner-stats.html" style="width: 100%; height: 600px; border: 0; display: block; border-radius: 12px;"></iframe>
+      <iframe id="owner-stats-iframe" src="owner-stats.html"
+        style="width: 100%; height: 600px; border: 0; display: block; border-radius: 12px;"></iframe>
     </div>
   </div>
   <script src="owner.js"></script>
 </body>
-</html>
 
+</html>

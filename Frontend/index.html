@@ -26,11 +26,13 @@
     console.debug('index.html parsed');
   </script>
 </head>
+
 <body>
 
   <!-- Splash Screen Intro -->
   <div id="splash-intro" class="splash-intro">
-    <canvas id="particle-canvas" style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;"></canvas>
+    <canvas id="particle-canvas"
+      style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1;"></canvas>
     <div class="water-drop"></div>
     <div class="ripple-effect"></div>
     <div class="splash-logo">
@@ -54,7 +56,9 @@
         </label>
       </div>
 
-      <button class="btn" id="sim-walk-btn" style="background: #10B981; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">🚶 Mô phỏng đi bộ</button>
+      <button class="btn" id="sim-walk-btn"
+        style="background: #10B981; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">🚶
+        Mô phỏng đi bộ</button>
 
       <div class="input-group">
         <input type="text" id="server-url" value="" style="display: none;">
@@ -68,7 +72,9 @@
       </div>
 
       <button class="btn" id="sync-btn">Đồng Bộ</button>
-      <button class="btn" id="show-profile-btn" style="background: #1f2937; color: #fff; margin-right:8px; display: inline-flex; align-items: center; justify-content: center;">👤 Đăng nhập / Hồ sơ</button>
+      <button class="btn" id="show-profile-btn"
+        style="background: #1f2937; color: #fff; margin-right:8px; display: inline-flex; align-items: center; justify-content: center;">👤
+        Đăng nhập / Hồ sơ</button>
     </div>
   </header>
 
@@ -105,14 +111,18 @@
         <div class="description" id="stall-description">
           Đang tải thuyết minh...
         </div>
-        <div class="audio-control-bar" style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <button class="btn" id="view-menu-btn" style="padding: 6px 14px; font-size: 12px; background: #10B981; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+        <div class="audio-control-bar"
+          style="margin-top: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <button class="btn" id="view-menu-btn"
+            style="padding: 6px 14px; font-size: 12px; background: #10B981; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
             <span>☰</span> <span>Mở xem menu chi tiết</span>
           </button>
-          <button class="btn" id="play-audio-btn" style="padding: 6px 14px; font-size: 12px; background: #FF7A00; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <button class="btn" id="play-audio-btn"
+            style="padding: 6px 14px; font-size: 12px; background: #FF7A00; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
             <span id="play-btn-icon">▶</span> <span id="play-btn-text">Bắt đầu nghe thuyết minh</span>
           </button>
-          <button class="btn" id="directions-btn" style="padding: 6px 14px; font-size: 12px; background: #3b82f6; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <button class="btn" id="directions-btn"
+            style="padding: 6px 14px; font-size: 12px; background: #3b82f6; border-radius: 6px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
             <span>📍</span> <span data-i18n="directionsBtn">Chỉ Đường</span>
           </button>
           <span id="audio-status" style="font-size: 11px; color: var(--text-gray);">Sẵn sàng</span>
@@ -131,7 +141,8 @@
 
       <div class="chat-log" id="chat-log">
         <div class="bubble ai">
-          Xin chào! Tôi là Trợ Lý AI của phố ẩm thực Quận 4. Hãy đặt bất kỳ câu hỏi nào về các quán ăn, gợi ý món ăn, hoặc nhờ tôi lên lịch trình food tour Quận 4 cho bạn nhé!
+          Xin chào! Tôi là Trợ Lý AI của phố ẩm thực Quận 4. Hãy đặt bất kỳ câu hỏi nào về các quán ăn, gợi ý món ăn,
+          hoặc nhờ tôi lên lịch trình food tour Quận 4 cho bạn nhé!
         </div>
       </div>
 
@@ -143,7 +154,9 @@
   </main>
 
   <!-- Notification bar at bottom of header -->
-  <div style="background: rgba(255, 122, 0, 0.1); border-bottom: 1px solid rgba(255, 122, 0, 0.2); padding: 6px 24px; font-size: 11px; color: #ff9d42; display: flex; justify-content: space-between; z-index: 999;" id="status-bar">
+  <div
+    style="background: rgba(255, 122, 0, 0.1); border-bottom: 1px solid rgba(255, 122, 0, 0.2); padding: 6px 24px; font-size: 11px; color: #ff9d42; display: flex; justify-content: space-between; z-index: 999;"
+    id="status-bar">
     <span id="sync-status" data-state="ready">Hệ thống sẵn sàng. Vui lòng Đồng bộ để cập nhật dữ liệu.</span>
     <span id="gps-status" data-state="off">GPS: Tắt</span>
   </div>
@@ -214,18 +227,22 @@
   </div>
 
   <!-- Profile Modal -->
-  <div id="profile-modal" class="modal" style="display:none; position:fixed; right:16px; top:72px; width:300px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.06); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:1200; padding:12px;">
+  <div id="profile-modal" class="modal"
+    style="display:none; position:fixed; right:16px; top:72px; width:300px; background:#111827; color:#fff; border:1px solid rgba(255,255,255,0.06); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,0.5); z-index:1200; padding:12px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong id="profile-modal-title" data-i18n="profileModalTitle">Thông tin người dùng</strong>
-      <button id="profile-close-btn" style="background:transparent; border:none; color:#fff; font-size:16px; cursor:pointer;">✕</button>
+      <button id="profile-close-btn"
+        style="background:transparent; border:none; color:#fff; font-size:16px; cursor:pointer;">✕</button>
     </div>
     <div id="profile-content" style="font-size:13px; line-height:1.4;">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-        <img id="profile-avatar-img" src="" alt="avatar" style="width:56px; height:56px; border-radius:8px; object-fit:cover; background:#222;" />
+        <img id="profile-avatar-img" src="" alt="avatar"
+          style="width:56px; height:56px; border-radius:8px; object-fit:cover; background:#222;" />
         <div style="flex:1;">
           <div style="font-size:13px; color:#ccc;" data-i18n="profileAvatarLabel">Ảnh đại diện</div>
           <input type="file" id="profile-avatar-input" accept="image/*" style="margin-top:6px; width:100%;" />
-          <button id="profile-avatar-upload-btn" class="btn" style="margin-top:6px; background:#2563eb;" data-i18n="profileUploadBtn">Tải lên</button>
+          <button id="profile-avatar-upload-btn" class="btn" style="margin-top:6px; background:#2563eb;"
+            data-i18n="profileUploadBtn">Tải lên</button>
         </div>
       </div>
       <div><strong data-i18n="profileLabelUsername">Tên đăng nhập:</strong> <span id="profile-username">-</span></div>
@@ -236,7 +253,8 @@
       <div><strong data-i18n="profileLabelUserId">ID người dùng:</strong> <span id="profile-userid">-</span></div>
       <div><strong data-i18n="profileLabelDevice">Device ID:</strong> <span id="profile-device">-</span></div>
       <div style="margin-top:12px; display:flex; gap:8px;">
-        <button id="profile-logout-btn" class="btn" style="background:#ef4444; flex:1;" data-i18n="profileLogoutBtn">Đăng xuất</button>
+        <button id="profile-logout-btn" class="btn" style="background:#ef4444; flex:1;"
+          data-i18n="profileLogoutBtn">Đăng xuất</button>
       </div>
     </div>
   </div>
@@ -248,12 +266,11 @@
     // Diagnostic: ensure module script is added after DOM
     const s = document.createElement('script');
     s.type = 'module';
-    s.src = 'app.js?v=16';
+    s.src = 'app.js?v=18';
     s.onload = () => console.debug('app.js module loaded');
     s.onerror = (e) => console.error('Failed to load app.js', e);
     document.body.appendChild(s);
   </script>
 </body>
+
 </html>
-
-

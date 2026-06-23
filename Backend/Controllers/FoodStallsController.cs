@@ -70,9 +70,15 @@ namespace Backend.Controllers
                 if (lang == "vi")
                 {
                     translatedText = stall.OriginalHistory;
-                    audioUrl = localizationByStall.TryGetValue(stall.Id, out var viLoc)
-                        ? viLoc.AudioUrl
-                        : string.Empty;
+                    if (localizationByStall.TryGetValue(stall.Id, out var viLoc) && !string.IsNullOrWhiteSpace(viLoc.AudioUrl))
+                    {
+                        audioUrl = viLoc.AudioUrl;
+                    }
+                    else
+                    {
+                        audioUrl = string.Empty;
+                        missingStallIds.Add(stall.Id);
+                    }
                 }
                 else if (localizationByStall.TryGetValue(stall.Id, out var cachedLoc) &&
                          !string.IsNullOrWhiteSpace(cachedLoc.TranslatedText))

@@ -300,7 +300,7 @@
     // Diagnostic: ensure module script is added after DOM
     const s = document.createElement('script');
     s.type = 'module';
-    s.src = 'app.js?v=16';
+    s.src = 'app.js?v=18';
     s.onload = () => console.debug('app.js module loaded');
     s.onerror = (e) => console.error('Failed to load app.js', e);
     document.body.appendChild(s);

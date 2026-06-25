@@ -88,6 +88,30 @@ window.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'login.html';
   });
 
+  const generateAllBtn = document.getElementById('generate-all-btn');
+  generateAllBtn?.addEventListener('click', async () => {
+    if (!confirm('Bạn có chắc chắn muốn bắt đầu tiến trình dịch thuật và sinh âm thanh (Edge-TTS) cho tất cả các quán ăn trong hệ thống không? Tiến trình này sẽ chạy ngầm trên máy chủ.')) return;
+    generateAllBtn.disabled = true;
+    generateAllBtn.innerText = 'Đang kích hoạt...';
+    try {
+      const response = await fetch(`${defaultServerUrl}/api/admin/localizations/generate-all`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        alert('Đã kích hoạt tiến trình sinh âm thanh thuyết minh toàn bộ hệ thống thành công! Máy chủ đang thực hiện chạy ngầm.');
+      } else {
+        alert('Không thể kích hoạt tiến trình: ' + await response.text());
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi kết nối khi gửi yêu cầu.');
+    } finally {
+      generateAllBtn.disabled = false;
+      generateAllBtn.innerText = '⚙️ Tạo toàn bộ Audio';
+    }
+  });
+
   // Wire Tab switching
   tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {

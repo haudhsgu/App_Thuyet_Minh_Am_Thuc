@@ -1605,7 +1605,7 @@ async function onSync(options = {}) {
     await db.saveStalls(stalls);
     await loadStallPins();
 
-    if (pendingTranslations > 0 && langCode !== 'vi') {
+    if (pendingTranslations > 0) {
       syncStatus.style.color = '#FF7A00';
       syncStatus.dataset.state = 'partial';
       syncStatus.innerText = trans.syncStatusPartial

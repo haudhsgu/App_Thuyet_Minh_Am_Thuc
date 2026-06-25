@@ -72,7 +72,6 @@ namespace Backend.Controllers
                 if (lang == "vi")
                 {
                     translatedText = stall.OriginalHistory;
-                    
                     var hasViLoc = localizationByStall.TryGetValue(stall.Id, out var viLoc);
                     var isOutdated = hasViLoc && viLoc.TextHash != currentHash;
                     

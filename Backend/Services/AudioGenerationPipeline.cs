@@ -110,7 +110,7 @@ namespace Backend.Services
             var audioBytes = await _edgeTtsService.SynthesizeAsync(translatedText, targetLanguageCode);
 
             // Step 5: Save MP3 File to wwwroot
-            var fileName = $"{foodStallId}_{targetLanguageCode}.mp3";
+            var fileName = $"{foodStallId}_{targetLanguageCode}_{sourceHash}.mp3";
             var audioDir = Path.Combine(WebRootPath, "audio");
             if (!Directory.Exists(audioDir))
             {
@@ -120,7 +120,47 @@ namespace Backend.Services
             var filePath = Path.Combine(audioDir, fileName);
             await File.WriteAllBytesAsync(filePath, audioBytes);
 
-            // Create server URL (e.g. /audio/stallid_language.mp3)
+            // Clean up old audio files for this stall and language to prevent disk bloat
+            try
+            {
+                var searchPattern = $"{foodStallId}_{targetLanguageCode}_*.mp3";
+                if (Directory.Exists(audioDir))
+                {
+                    foreach (var oldFile in Directory.GetFiles(audioDir, searchPattern))
+                    {
+                        if (Path.GetFileName(oldFile) != fileName)
+                        {
+                            try
+                            {
+                                File.Delete(oldFile);
+                            }
+                            catch
+                            {
+                                // Ignore cleanup failure if file is locked
+                            }
+                        }
+                    }
+                    // Clean up legacy non-hash files if present
+                    var legacyFile = Path.Combine(audioDir, $"{foodStallId}_{targetLanguageCode}.mp3");
+                    if (File.Exists(legacyFile))
+                    {
+                        try
+                        {
+                            File.Delete(legacyFile);
+                        }
+                        catch
+                        {
+                            // Ignore
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clean up old audio files for stall '{StallId}'", foodStallId);
+            }
+
+            // Create server URL (e.g. /audio/stallid_language_hash.mp3)
             var audioUrl = $"/audio/{fileName}";
 
             // Step 6: Upsert Localization in DB
@@ -198,9 +238,6 @@ namespace Backend.Services
             var normalizedTranslated = NormalizeForComparison(translatedText);
 
             if (string.Equals(normalizedOriginal, normalizedTranslated, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (normalizedTranslated.Contains(normalizedOriginal, StringComparison.OrdinalIgnoreCase))
                 return true;
 
             return false;

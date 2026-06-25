@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Backend.Data;
 using Backend.Models;
 using Backend.Services;
@@ -15,13 +16,15 @@ namespace Backend.Controllers
     {
         private readonly AppDbContext _dbContext;
         private readonly IAudioGenerationPipeline _audioPipeline;
+        private readonly IServiceScopeFactory _scopeFactory;
         private static readonly string[] SupportedLanguages = { "vi", "en", "ja", "ko", "zh" };
         private static readonly string[] StallVisitActions = { "LISTENED_STALL", "VISITED_STALL" };
 
-        public AdminController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline)
+        public AdminController(AppDbContext dbContext, IAudioGenerationPipeline audioPipeline, IServiceScopeFactory scopeFactory)
         {
             _dbContext = dbContext;
             _audioPipeline = audioPipeline;
+            _scopeFactory = scopeFactory;
         }
 
         // 1. GET Dashboard Metrics
@@ -34,8 +37,8 @@ namespace Backend.Controllers
             var totalStalls = await _dbContext.FoodStalls.CountAsync();
             var totalUsers = await _dbContext.Users.CountAsync(u => u.Role == "Public");
             
-            // Active users are users whose LastActive is within the last 5 minutes
-            var activeThreshold = DateTime.UtcNow.AddMinutes(-5);
+            // Active users are users whose LastActive is within the last 1 minutes
+            var activeThreshold = DateTime.UtcNow.AddMinutes(-1);
             var activeUsersCount = await _dbContext.Users.CountAsync(u => u.LastActive >= activeThreshold);
 
             return Ok(new
@@ -120,7 +123,11 @@ namespace Backend.Controllers
                     {
                         try
                         {
-                            await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            using (var scope = _scopeFactory.CreateScope())
+                            {
+                                var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                                await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            }
                         }
                         catch (Exception)
                         {
@@ -185,7 +192,11 @@ namespace Backend.Controllers
                     {
                         try
                         {
-                            await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            using (var scope = _scopeFactory.CreateScope())
+                            {
+                                var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                                await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            }
                         }
                         catch
                         {
@@ -238,7 +249,11 @@ namespace Backend.Controllers
                 {
                     try
                     {
-                        await _audioPipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        using (var scope = _scopeFactory.CreateScope())
+                        {
+                            var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
+                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                        }
                     }
                     catch (Exception)
                     {
@@ -285,9 +300,9 @@ namespace Backend.Controllers
             var admin = await GetAdminUserAsync();
             if (admin == null) return Unauthorized("Admin privileges required.");
 
-            var threshold = DateTime.UtcNow.AddMinutes(-5);
+            var threshold = DateTime.UtcNow.AddMinutes(-1);
             
-            // Get users who were active in last 5 minutes along with their last telemetry item
+            // Get users who were active in last 1 minutes along with their last telemetry item
             var users = await _dbContext.Users
                 .Where(u => u.LastActive >= threshold && u.Role != "Admin")
                 .ToListAsync();
@@ -499,21 +514,28 @@ namespace Backend.Controllers
 
             var users = await _dbContext.Users
                 .Where(u => u.Role == "Owner")
-                .Select(u => new
-                {
-                    u.Id,
-                    u.Username,
-                    u.Role,
-                    u.FullName,
-                    u.PhoneNumber,
-                    u.Email,
-                    u.HasPaidAccess,
-                    u.IsVerified,
-                    u.LastActive
-                })
                 .ToListAsync();
 
-            return Ok(users);
+            var userIds = users.Select(u => u.Id).ToList();
+            var stallsByOwner = await _dbContext.FoodStalls
+                .Where(s => s.OwnerId != null && userIds.Contains(s.OwnerId.Value))
+                .ToListAsync();
+
+            var result = users.Select(u => new
+            {
+                u.Id,
+                u.Username,
+                u.Role,
+                u.FullName,
+                u.PhoneNumber,
+                u.Email,
+                u.HasPaidAccess,
+                u.IsVerified,
+                u.LastActive,
+                StallNames = stallsByOwner.Where(s => s.OwnerId == u.Id).Select(s => s.Name).ToList()
+            }).ToList();
+
+            return Ok(result);
         }
 
         // 13. DELETE User (Requires Admin and check Owner Stalls first)
@@ -529,10 +551,14 @@ namespace Backend.Controllers
             // Constraint check: If Owner, check if they still have stalls
             if (user.Role == "Owner")
             {
-                var hasStalls = await _dbContext.FoodStalls.AnyAsync(s => s.OwnerId == id);
-                if (hasStalls)
+                var ownerStalls = await _dbContext.FoodStalls
+                    .Where(s => s.OwnerId == id)
+                    .Select(s => s.Name)
+                    .ToListAsync();
+                if (ownerStalls.Any())
                 {
-                    return BadRequest("Tài khoản này là Chủ quán của địa điểm đang tồn tại. Vui lòng xóa quán ăn của chủ quán này trước khi xóa tài khoản.");
+                    var stallNamesString = string.Join(", ", ownerStalls);
+                    return BadRequest($"Tài khoản này là Chủ quán của các cửa hàng đang tồn tại: {stallNamesString}. Vui lòng xóa các cửa hàng này trước khi xóa tài khoản chủ quán.");
                 }
             }
 
@@ -697,7 +723,8 @@ namespace Backend.Controllers
                 {
                     l.Id,
                     l.LanguageCode,
-                    l.AudioUrl
+                    l.AudioUrl,
+                    l.TranslatedText
                 })
                 .ToListAsync();
 

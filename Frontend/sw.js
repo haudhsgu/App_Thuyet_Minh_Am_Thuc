@@ -78,11 +78,11 @@ self.addEventListener('fetch', event => {
       return fetch(event.request).then(networkResponse => {
         if (
           event.request.method === 'GET' &&
-          (url.hostname.includes('tile.openstreetmap.org') || 
-           url.pathname.includes('/tile/') ||
-           url.pathname.includes('/images/') ||
-           url.pathname.includes('/audio/') ||
-           url.pathname.endsWith('.mp3'))
+          (url.hostname.includes('tile.openstreetmap.org') ||
+            url.pathname.includes('/tile/') ||
+            url.pathname.includes('/images/') ||
+            url.pathname.includes('/audio/') ||
+            url.pathname.endsWith('.mp3'))
         ) {
           return caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, networkResponse.clone());

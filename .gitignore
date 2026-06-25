@@ -47,3 +47,6 @@ Backend/wwwroot/avatars/*
 !Backend/wwwroot/avatars/.gitkeep
 Backend/wwwroot/images/*
 !Backend/wwwroot/images/.gitkeep
+
+Backend/appsettings.Development.json
+Backend/appsettings.Development.json

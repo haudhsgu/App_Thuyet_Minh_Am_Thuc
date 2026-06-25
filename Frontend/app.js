@@ -18,7 +18,14 @@ const SUPPORTED_LANGUAGES = ['vi', 'en', 'ja', 'ko', 'zh'];
 
 function getSavedLanguage() {
   const saved = localStorage.getItem(LANG_STORAGE_KEY);
-  return SUPPORTED_LANGUAGES.includes(saved) ? saved : 'vi';
+  if (saved && SUPPORTED_LANGUAGES.includes(saved)) {
+    return saved;
+  }
+  const browserLang = (navigator.language || navigator.userLanguage || '').substring(0, 2).toLowerCase();
+  if (SUPPORTED_LANGUAGES.includes(browserLang)) {
+    return browserLang;
+  }
+  return 'vi';
 }
 
 function getTrans(langCode = langPicker?.value) {
@@ -655,6 +662,80 @@ function updateUiLanguage(lang) {
 
   updateHeaderAuthState();
   updateMapMarkerPopups();
+  updateCustomLangPicker(lang);
+}
+
+function updateCustomLangPicker(lang) {
+  const currentFlag = document.getElementById('current-lang-flag');
+  const currentText = document.getElementById('current-lang-text');
+  const mobileFlag = document.getElementById('mobile-lang-flag');
+
+  const flagUrls = {
+    vi: 'https://flagcdn.com/w40/vn.png',
+    en: 'https://flagcdn.com/w40/gb.png',
+    ja: 'https://flagcdn.com/w40/jp.png',
+    ko: 'https://flagcdn.com/w40/kr.png',
+    zh: 'https://flagcdn.com/w40/cn.png'
+  };
+
+  const langNames = {
+    vi: 'Tiếng Việt',
+    en: 'English',
+    ja: '日本語',
+    ko: '한국어',
+    zh: '中文'
+  };
+
+  const flagUrl = flagUrls[lang] || flagUrls.vi;
+  const langName = langNames[lang] || langNames.vi;
+
+  if (currentFlag) currentFlag.src = flagUrl;
+  if (currentText) currentText.textContent = langName;
+  if (mobileFlag) mobileFlag.src = flagUrl;
+}
+
+function initCustomLangPicker() {
+  const btnCurrent = document.getElementById('lang-btn-current');
+  const mobileBtn = document.getElementById('mobile-lang-btn');
+  const dropdownMenu = document.getElementById('lang-dropdown-menu');
+
+  if (btnCurrent && dropdownMenu) {
+    btnCurrent.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('show');
+      dropdownMenu.classList.remove('mobile-show');
+    });
+  }
+
+  if (mobileBtn && dropdownMenu) {
+    mobileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('mobile-show');
+      dropdownMenu.classList.remove('show');
+    });
+  }
+
+  const langItems = document.querySelectorAll('.lang-item');
+  langItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      const selectedVal = item.getAttribute('data-value');
+      if (selectedVal && langPicker) {
+        langPicker.value = selectedVal;
+        langPicker.dispatchEvent(new Event('change'));
+      }
+      if (dropdownMenu) {
+        dropdownMenu.classList.remove('show');
+        dropdownMenu.classList.remove('mobile-show');
+      }
+    });
+  });
+
+  document.addEventListener('click', () => {
+    if (dropdownMenu) {
+      dropdownMenu.classList.remove('show');
+      dropdownMenu.classList.remove('mobile-show');
+    }
+  });
 }
 
 // Global error handler to help debug mobile devices
@@ -772,6 +853,7 @@ async function initApp() {
     // Restore saved language before rendering UI/data
     const savedLang = getSavedLanguage();
     if (langPicker) langPicker.value = savedLang;
+    initCustomLangPicker();
     updateUiLanguage(savedLang);
 
     // Initialize Map
@@ -898,7 +980,7 @@ async function initApp() {
     if (hasUnlockedAccess()) {
       onSync().catch(err => console.warn('Auto sync on load failed', err));
     }
-    } catch (err) {
+  } catch (err) {
     console.error('App init failed:', err);
     const status = document.getElementById('sync-status');
     if (status) {
@@ -1310,7 +1392,7 @@ async function fetchProfileIfLoggedIn() {
     const trans = getTrans();
     const rawAvatar = data.avatarUrl || '';
     const avatar = (rawAvatar && !rawAvatar.startsWith('http')) ? serverUrl + rawAvatar : rawAvatar;
-    
+
     setProfileButtonLabel(trans.profileBtnLoggedIn, avatar);
     showProfileBtn.style.display = 'inline-flex';
     if (profileAvatarImg && avatar) profileAvatarImg.src = avatar;
@@ -1320,7 +1402,7 @@ async function fetchProfileIfLoggedIn() {
     localStorage.setItem('fullName', data.fullName || data.fullname || localStorage.getItem('fullName') || '');
     localStorage.setItem('email', data.email || localStorage.getItem('email') || '');
     localStorage.setItem('phoneNumber', data.phoneNumber || data.phonenumber || localStorage.getItem('phoneNumber') || '');
-    
+
     // Hide logout for public device accounts
     const logoutBtn = document.getElementById('profile-logout-btn');
     const ownerLoginBtn = document.getElementById('profile-owner-login-btn');
@@ -1337,7 +1419,7 @@ function onLogout() {
   localStorage.removeItem('userRole');
   localStorage.removeItem('username');
   localStorage.removeItem('userId');
-    localStorage.removeItem('hasPaidAccess');
+  localStorage.removeItem('hasPaidAccess');
   window.location.reload();
 }
 
@@ -1563,10 +1645,10 @@ function prefetchAudioFiles(stalls, serverUrl) {
   (async () => {
     for (const stall of stalls) {
       if (stall.audioUrl) {
-        const fullAudioUrl = stall.audioUrl.startsWith('http') 
-          ? stall.audioUrl 
+        const fullAudioUrl = stall.audioUrl.startsWith('http')
+          ? stall.audioUrl
           : `${serverUrl}${stall.audioUrl}`;
-          
+
         try {
           const audioRes = await fetch(fullAudioUrl);
           if (audioRes.ok) {
@@ -2081,7 +2163,7 @@ async function recordUserAction(foodStallId, actionType) {
     });
 
     if (!response.ok) {
-      console.warn('Visit record rejected:', await response.text().catch(()=>''));
+      console.warn('Visit record rejected:', await response.text().catch(() => ''));
       return null;
     }
     return await response.json();
@@ -2125,11 +2207,11 @@ const runMobilePwaUiLogic = () => {
   const stallPanel = document.querySelector('.stall-panel');
   const chatPanel = document.querySelector('.chat-panel');
   const stallCard = document.getElementById('stall-card');
-  
+
   navItems.forEach(item => {
     item.addEventListener('click', (e) => {
       // Don't handle profile here, it's handled by the profile modal logic
-      if(item.dataset.view === 'profile') return;
+      if (item.dataset.view === 'profile') return;
 
       // Update active state
       navItems.forEach(n => n.classList.remove('active'));
@@ -2181,7 +2263,7 @@ const runMobilePwaUiLogic = () => {
       navItems.forEach(n => n.classList.remove('active'));
       mobileProfileBtn.classList.add('active');
       realProfileBtn.click();
-      
+
       // Remove panels to show map behind modal
       stallPanel.classList.remove('mobile-active');
       chatPanel.classList.remove('mobile-active');

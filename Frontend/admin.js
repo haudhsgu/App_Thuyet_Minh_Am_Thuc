@@ -171,7 +171,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Users Search Input
   usersSearchInput?.addEventListener('input', () => {
     const query = usersSearchInput.value.toLowerCase().trim();
-    const filtered = allUsers.filter(u => 
+    const filtered = allUsers.filter(u =>
       (u.username && u.username.toLowerCase().includes(query)) ||
       (u.fullName && u.fullName.toLowerCase().includes(query)) ||
       (u.email && u.email.toLowerCase().includes(query)) ||
@@ -183,7 +183,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Stalls Search Input
   stallsSearchInput?.addEventListener('input', () => {
     const query = stallsSearchInput.value.toLowerCase().trim();
-    const filtered = allStalls.filter(s => 
+    const filtered = allStalls.filter(s =>
       (s.name && s.name.toLowerCase().includes(query)) ||
       (s.address && s.address.toLowerCase().includes(query)) ||
       (s.ownerUsername && s.ownerUsername.toLowerCase().includes(query))
@@ -800,7 +800,17 @@ function renderUsersList(users) {
 }
 
 window.deleteUser = async (id) => {
-  if (!confirm('Bạn có chắc chắn muốn xóa tài khoản người dùng này? Hành động này sẽ xóa vĩnh viễn các thông tin liên quan của họ.')) return;
+  const user = allUsers.find(u => u.id === id);
+  const stallNames = (user && user.stallNames && user.stallNames.length > 0) 
+    ? user.stallNames.join(', ') 
+    : '';
+
+  let confirmMsg = 'Bạn có chắc chắn muốn xóa tài khoản người dùng này? Hành động này sẽ xóa vĩnh viễn các thông tin liên quan của họ.';
+  if (stallNames) {
+    confirmMsg = `Tài khoản này đang là chủ của các cửa hàng sau: ${stallNames}. Bạn cần phải xóa các cửa hàng này trước khi xóa tài khoản. Bạn có chắc chắn muốn tiếp tục thử xóa không?`;
+  }
+
+  if (!confirm(confirmMsg)) return;
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}`, {
       method: 'DELETE',
@@ -901,7 +911,7 @@ window.deleteStall = async (id) => {
 
 window.viewUserDetails = async (id) => {
   if (!detailModal || !detailModalTitle || !detailModalBody) return;
-  
+
   detailModalTitle.innerText = "Chi Tiết Tài Khoản Chủ Quán";
   detailModalBody.innerHTML = '<div style="text-align:center;color:var(--text-gray);padding:20px;">Đang tải chi tiết...</div>';
   detailModal.style.display = 'flex';
@@ -915,7 +925,7 @@ window.viewUserDetails = async (id) => {
 
     if (response.ok) {
       const data = await response.json();
-      
+
       let regInfo = '<div style="color:var(--text-gray);">Không có thông tin đăng ký CCCD.</div>';
       if (data.registration) {
         regInfo = `
@@ -982,7 +992,7 @@ window.viewUserDetails = async (id) => {
 
 window.viewStallDetails = async (id) => {
   if (!detailModal || !detailModalTitle || !detailModalBody) return;
-  
+
   detailModalTitle.innerText = "Chi Tiết Quán Ăn";
   detailModalBody.innerHTML = '<div style="text-align:center;color:var(--text-gray);padding:20px;">Đang tải chi tiết...</div>';
   detailModal.style.display = 'flex';
@@ -996,14 +1006,36 @@ window.viewStallDetails = async (id) => {
 
     if (response.ok) {
       const data = await response.json();
-      
-      let locsInfo = '<span style="color:var(--text-gray);">Chưa có bản dịch nào.</span>';
+
+      let locsInfo = '<div style="color:var(--text-gray);">Chưa có bản dịch nào.</div>';
       if (data.localizations && data.localizations.length > 0) {
-        locsInfo = data.localizations.map(l => `
-          <span style="display:inline-block;background:rgba(255,255,255,0.08);padding:3px 8px;border-radius:4px;font-size:11px;margin-right:6px;margin-bottom:6px;color:#fff;border:1px solid var(--border-color);">
-            🌍 <b>${l.languageCode.toUpperCase()}</b>: ${l.audioUrl ? '<span style="color:#00ff66;">Đã sinh Audio</span>' : '<span style="color:var(--text-gray);">Chưa có Audio</span>'}
-          </span>
-        `).join('');
+        locsInfo = `
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px;">
+            ${data.localizations.map(l => {
+              const langName = l.languageCode.toUpperCase() === 'VI' ? 'Tiếng Việt' :
+                               l.languageCode.toUpperCase() === 'EN' ? 'English' :
+                               l.languageCode.toUpperCase() === 'JA' ? '日本語' :
+                               l.languageCode.toUpperCase() === 'KO' ? '한국어' :
+                               l.languageCode.toUpperCase() === 'ZH' ? '中文' : l.languageCode.toUpperCase();
+              
+              const audioPlayerHtml = l.audioUrl 
+                ? `<audio controls src="${l.audioUrl.startsWith('http') ? l.audioUrl : (defaultServerUrl + l.audioUrl)}" style="width: 100%; max-width: 280px; height: 32px; margin-top: 4px;"></audio>` 
+                : `<span style="color: var(--text-gray); font-size: 11px;">(Chưa có file thuyết minh âm thanh)</span>`;
+                
+              return `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+                    <strong style="color: var(--primary-color); font-size: 12px;">🌍 ${langName}</strong>
+                  </div>
+                  <div style="font-size: 12px; color: #ddd; white-space: pre-wrap; line-height: 1.4; max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 6px; border-radius: 4px;">${escapeHtml(l.translatedText || '(Chưa dịch)')}</div>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    ${audioPlayerHtml}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
       }
 
       let imagesInfo = '<div style="color:var(--text-gray);padding:5px 0;">Không có ảnh thực đơn.</div>';

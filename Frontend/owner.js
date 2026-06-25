@@ -410,6 +410,11 @@ stallForm.addEventListener('submit', async (e) => {
       submitFeedback.style.color = '#10B981';
 
       currentStall.isVerified = false;
+      currentStall.name = payload.name;
+      currentStall.address = payload.address;
+      currentStall.latitude = payload.latitude;
+      currentStall.longitude = payload.longitude;
+      currentStall.originalHistory = payload.originalHistory;
       updateStatusBadge(false, 'Chờ duyệt thuyết minh mới.');
     } else {
       const errText = await response.text();

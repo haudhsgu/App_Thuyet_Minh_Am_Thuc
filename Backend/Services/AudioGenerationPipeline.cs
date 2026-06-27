@@ -13,7 +13,7 @@ namespace Backend.Services
 {
     public interface IAudioGenerationPipeline
     {
-        Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode);
+        Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode, bool force = false);
     }
 
     public class AudioGenerationPipeline : IAudioGenerationPipeline
@@ -39,7 +39,7 @@ namespace Backend.Services
             _logger = logger;
         }
 
-        public async Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode)
+        public async Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode, bool force = false)
         {
             targetLanguageCode = targetLanguageCode.Trim().ToLower();
             
@@ -49,7 +49,7 @@ namespace Backend.Services
                 throw new ArgumentException($"FoodStall with ID {foodStallId} not found.");
             }
 
-            _logger.LogInformation("Processing audio generation pipeline for stall '{Name}' in language '{Lang}'", stall.Name, targetLanguageCode);
+            _logger.LogInformation("Processing audio generation pipeline for stall '{Name}' in language '{Lang}' (force: {Force})", stall.Name, targetLanguageCode, force);
 
             // Step 1: Compute MD5 Hash of the Source Text (OriginalHistory)
             var sourceHash = ComputeMd5Hash(stall.OriginalHistory);
@@ -59,7 +59,7 @@ namespace Backend.Services
                 .FirstOrDefaultAsync(l => l.FoodStallId == foodStallId && l.LanguageCode == targetLanguageCode);
 
             // Step 2: Compare Hash of Source Text & check if MP3 exists
-            if (existingLoc != null && existingLoc.TextHash == sourceHash && FileExistsOnServer(existingLoc.AudioUrl))
+            if (!force && existingLoc != null && existingLoc.TextHash == sourceHash && FileExistsOnServer(existingLoc.AudioUrl))
             {
                 var needsRegeneration = targetLanguageCode != "vi" &&
                     (string.IsNullOrWhiteSpace(existingLoc.TranslatedText) ||

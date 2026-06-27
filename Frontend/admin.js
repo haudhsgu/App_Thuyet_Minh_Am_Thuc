@@ -760,7 +760,7 @@ async function loadUsers() {
     }
   } catch (err) {
     console.error('Load users failed:', err);
-    usersTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu người dùng.</td></tr>';
+    usersTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu người dùng.</td></tr>';
   }
 }
 
@@ -769,14 +769,13 @@ function renderUsersList(users) {
   usersTableBody.innerHTML = '';
 
   if (users.length === 0) {
-    usersTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-gray);">Không tìm thấy tài khoản nào.</td></tr>';
+    usersTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-gray);">Không tìm thấy tài khoản nào.</td></tr>';
     return;
   }
 
   users.forEach(u => {
     const tr = document.createElement('tr');
     const lastActiveDate = u.lastActive ? new Date(u.lastActive).toLocaleString('vi-VN') : '-';
-    const paidStatus = u.hasPaidAccess ? '<span style="color:#00ff66;">Đã thanh toán</span>' : '<span style="color:var(--text-gray);">Chưa thanh toán</span>';
     const verifiedStatus = u.isVerified ? '<span style="color:#00ff66;">Đã kích hoạt</span>' : '<span style="color:#ff3333;">Chưa kích hoạt</span>';
 
     tr.innerHTML = `
@@ -785,7 +784,6 @@ function renderUsersList(users) {
       <td><span class="badge" style="padding:2px 6px;border-radius:4px;font-size:11px;background:${u.role === 'Owner' ? '#8b5cf6' : '#6b7280'};color:#fff;">${u.role}</span></td>
       <td>${escapeHtml(u.phoneNumber || '-')}</td>
       <td>${escapeHtml(u.email || '-')}</td>
-      <td>${paidStatus}</td>
       <td>${verifiedStatus}</td>
       <td>${lastActiveDate}</td>
       <td>

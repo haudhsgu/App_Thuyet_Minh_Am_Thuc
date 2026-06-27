@@ -126,7 +126,7 @@ namespace Backend.Controllers
                             using (var scope = _scopeFactory.CreateScope())
                             {
                                 var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
-                                await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                                await pipeline.ProcessStallLocalizationAsync(stall.Id, lang, force: true);
                             }
                         }
                         catch (Exception)
@@ -242,7 +242,7 @@ namespace Backend.Controllers
 
             await _dbContext.SaveChangesAsync();
 
-            // Re-generate translations and TTS audio in background for all supported languages
+            // Re-generate translations and TTS audio in background for all supported languages (forced to ensure all languages are recreated)
             _ = Task.Run(async () =>
             {
                 foreach (var lang in SupportedLanguages)
@@ -252,7 +252,7 @@ namespace Backend.Controllers
                         using (var scope = _scopeFactory.CreateScope())
                         {
                             var pipeline = scope.ServiceProvider.GetRequiredService<IAudioGenerationPipeline>();
-                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang);
+                            await pipeline.ProcessStallLocalizationAsync(stall.Id, lang, force: true);
                         }
                     }
                     catch (Exception)

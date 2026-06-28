@@ -97,6 +97,11 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<AppDbContext>();
         context.Database.EnsureCreated();
 
+        await EnsureUserProfileColumnsAsync(context);
+        await EnsureFoodStallColumnsAsync(context);
+        await EnsurePendingUserProfileChangesTableAsync(context);
+        await EnsureMenuAndVisitTablesAsync(context);
+
         // Seed Default Admin User if not exists
         if (!context.Users.Any(u => u.Role == "Admin"))
         {
@@ -191,6 +196,7 @@ static async Task EnsureUserProfileColumnsAsync(Backend.Data.AppDbContext contex
     string textType = isSqlite ? "TEXT" : "text";
     string boolType = isSqlite ? "INTEGER" : "boolean";
     string boolFalse = isSqlite ? "0" : "false";
+    string boolTrue = isSqlite ? "1" : "true";
 
     // User Profile Columns
     if (!existingColumns.Contains("FullName"))
@@ -201,6 +207,10 @@ static async Task EnsureUserProfileColumnsAsync(Backend.Data.AppDbContext contex
         addColumnCommands.Add($"ALTER TABLE \"Users\" ADD COLUMN \"Email\" {textType} NOT NULL DEFAULT '';");
     if (!existingColumns.Contains("AvatarUrl"))
         addColumnCommands.Add($"ALTER TABLE \"Users\" ADD COLUMN \"AvatarUrl\" {textType} NOT NULL DEFAULT '';");
+    if (!existingColumns.Contains("is_Active"))
+        addColumnCommands.Add($"ALTER TABLE \"Users\" ADD COLUMN \"is_Active\" {boolType} NOT NULL DEFAULT {boolTrue};");
+    if (!existingColumns.Contains("CccdEncrypted"))
+        addColumnCommands.Add($"ALTER TABLE \"Users\" ADD COLUMN \"CccdEncrypted\" {textType} NOT NULL DEFAULT '';");
 
     // Billing / Paid Access Columns
     if (!existingColumns.Contains("HasPaidAccess"))
@@ -568,3 +578,116 @@ static Guid CreateDeterministicGuid(string input)
     var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
     return new Guid(hash);
 }
+
+static async Task EnsureFoodStallColumnsAsync(Backend.Data.AppDbContext context)
+{
+    var providerName = context.Database.ProviderName ?? string.Empty;
+    var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    try
+    {
+        await using var command = context.Database.GetDbConnection().CreateCommand();
+        command.CommandText = "SELECT * FROM \"FoodStalls\" LIMIT 0;";
+        if (command.Connection.State != System.Data.ConnectionState.Open)
+        {
+            await command.Connection.OpenAsync();
+        }
+        await using (var reader = await command.ExecuteReaderAsync())
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                existingColumns.Add(reader.GetName(i));
+            }
+        }
+    }
+    catch (Exception)
+    {
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT * FROM FoodStalls LIMIT 0;";
+            if (command.Connection.State != System.Data.ConnectionState.Open)
+            {
+                await command.Connection.OpenAsync();
+            }
+            await using (var reader = await command.ExecuteReaderAsync())
+            {
+                for (int i = 0; i < reader.FieldCount; i++)
+                {
+                    existingColumns.Add(reader.GetName(i));
+                }
+            }
+        }
+        catch (Exception)
+        {
+            return;
+        }
+    }
+
+    var addColumnCommands = new List<string>();
+    bool isSqlite = providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase);
+    string boolType = isSqlite ? "INTEGER" : "boolean";
+    string boolTrue = isSqlite ? "1" : "true";
+
+    if (!existingColumns.Contains("is_Active"))
+        addColumnCommands.Add($"ALTER TABLE \"FoodStalls\" ADD COLUMN \"is_Active\" {boolType} NOT NULL DEFAULT {boolTrue};");
+
+    foreach (var sql in addColumnCommands)
+    {
+        try
+        {
+            await context.Database.ExecuteSqlRawAsync(sql);
+            Console.WriteLine($"Executed FoodStalls migration: {sql}");
+        }
+        catch (Exception)
+        {
+            try
+            {
+                var fallbackSql = sql.Replace("\"", "");
+                await context.Database.ExecuteSqlRawAsync(fallbackSql);
+                Console.WriteLine($"Executed FoodStalls fallback migration: {fallbackSql}");
+            }
+            catch (Exception)
+            {
+                // Ignore errors if columns already exist or fail
+            }
+        }
+    }
+}
+
+static async Task EnsurePendingUserProfileChangesTableAsync(Backend.Data.AppDbContext context)
+{
+    var providerName = context.Database.ProviderName ?? string.Empty;
+
+    if (providerName.Contains("Sqlite", StringComparison.OrdinalIgnoreCase))
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS PendingUserProfileChanges (
+                Id TEXT NOT NULL PRIMARY KEY,
+                UserId TEXT NOT NULL,
+                FullName TEXT NOT NULL DEFAULT '',
+                PhoneNumber TEXT NOT NULL DEFAULT '',
+                Email TEXT NOT NULL DEFAULT '',
+                CreatedAt TEXT NOT NULL,
+                FOREIGN KEY(UserId) REFERENCES Users(Id) ON DELETE CASCADE
+            );
+        ");
+        return;
+    }
+
+    if (providerName.Contains("Npgsql", StringComparison.OrdinalIgnoreCase) || providerName.Contains("PostgreSQL", StringComparison.OrdinalIgnoreCase))
+    {
+        await context.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""PendingUserProfileChanges"" (
+                ""Id"" uuid NOT NULL PRIMARY KEY,
+                ""UserId"" uuid NOT NULL,
+                ""FullName"" text NOT NULL DEFAULT '',
+                ""PhoneNumber"" text NOT NULL DEFAULT '',
+                ""Email"" text NOT NULL DEFAULT '',
+                ""CreatedAt"" timestamp with time zone NOT NULL,
+                CONSTRAINT ""FK_PendingUserProfileChanges_Users_UserId"" FOREIGN KEY (""UserId"") REFERENCES ""Users"" (""Id"") ON DELETE CASCADE
+            );
+        ");
+    }
+}
+

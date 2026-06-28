@@ -241,6 +241,57 @@ namespace Backend.Controllers
             return Ok(new { success = true, message = "Image deleted successfully." });
         }
 
+        public class UpdateProfileRequest
+        {
+            public string FullName { get; set; } = string.Empty;
+            public string PhoneNumber { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
+        }
+
+        // 6. PUT Update Owner Profile (Requires Admin approval)
+        [HttpPut("profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            var owner = await GetOwnerUserAsync();
+            if (owner == null) return Unauthorized("Stall Owner authorization required.");
+
+            var pendingChange = await _dbContext.PendingUserProfileChanges.FirstOrDefaultAsync(p => p.UserId == owner.Id);
+            if (pendingChange == null)
+            {
+                pendingChange = new PendingUserProfileChange
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = owner.Id,
+                    FullName = request.FullName,
+                    PhoneNumber = request.PhoneNumber,
+                    Email = request.Email,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _dbContext.PendingUserProfileChanges.Add(pendingChange);
+            }
+            else
+            {
+                pendingChange.FullName = request.FullName;
+                pendingChange.PhoneNumber = request.PhoneNumber;
+                pendingChange.Email = request.Email;
+                pendingChange.CreatedAt = DateTime.UtcNow;
+                _dbContext.Entry(pendingChange).State = EntityState.Modified;
+            }
+
+            _dbContext.UserTelemetries.Add(new UserTelemetry
+            {
+                Id = Guid.NewGuid(),
+                UserId = owner.Id,
+                Timestamp = DateTime.UtcNow,
+                Latitude = 10.760124,
+                Longitude = 106.702958,
+                Action = $"UPDATE_PROFILE_SUBMISSION: {request.FullName}"
+            });
+
+            await _dbContext.SaveChangesAsync();
+            return Ok(new { success = true, message = "Cập nhật thông tin cá nhân thành công. Đang chờ Admin phê duyệt." });
+        }
+
         private async Task<User?> GetOwnerUserAsync()
         {
             var authHeader = Request.Headers["Authorization"].ToString();

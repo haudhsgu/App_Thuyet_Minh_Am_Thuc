@@ -74,6 +74,8 @@ const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
 const usersSearchInput = document.getElementById('users-search-input');
 const stallsSearchInput = document.getElementById('stalls-search-input');
+const usersActiveFilter = document.getElementById('users-active-filter');
+const stallsActiveFilter = document.getElementById('stalls-active-filter');
 const detailModal = document.getElementById('detail-modal');
 const detailModalTitle = document.getElementById('detail-modal-title');
 const detailModalBody = document.getElementById('detail-modal-body');
@@ -169,27 +171,12 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   // Users Search Input
-  usersSearchInput?.addEventListener('input', () => {
-    const query = usersSearchInput.value.toLowerCase().trim();
-    const filtered = allUsers.filter(u =>
-      (u.username && u.username.toLowerCase().includes(query)) ||
-      (u.fullName && u.fullName.toLowerCase().includes(query)) ||
-      (u.email && u.email.toLowerCase().includes(query)) ||
-      (u.phoneNumber && u.phoneNumber.toLowerCase().includes(query))
-    );
-    renderUsersList(filtered);
-  });
+  usersSearchInput?.addEventListener('input', filterAndRenderUsers);
+  usersActiveFilter?.addEventListener('change', filterAndRenderUsers);
 
   // Stalls Search Input
-  stallsSearchInput?.addEventListener('input', () => {
-    const query = stallsSearchInput.value.toLowerCase().trim();
-    const filtered = allStalls.filter(s =>
-      (s.name && s.name.toLowerCase().includes(query)) ||
-      (s.address && s.address.toLowerCase().includes(query)) ||
-      (s.ownerUsername && s.ownerUsername.toLowerCase().includes(query))
-    );
-    renderStallsList(filtered);
-  });
+  stallsSearchInput?.addEventListener('input', filterAndRenderStalls);
+  stallsActiveFilter?.addEventListener('change', filterAndRenderStalls);
 });
 
 // Refresh all live dashboard statistics
@@ -351,38 +338,176 @@ async function loadRegistrations() {
   }
 }
 
-// Load stall submissions
+// Load stall and profile submissions
 async function loadSubmissions() {
   try {
     const response = await fetch(`${defaultServerUrl}/api/admin/submissions`, {
       headers: getAuthHeaders()
     });
 
+    if (handleAuthFailure(response)) return;
+
     if (response.ok) {
       const list = await response.json();
       if (list.length === 0) {
-        submissionsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-gray);">Không có thuyết minh nào đang chờ phê duyệt.</td></tr>`;
+        submissionsTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-gray);">Không có yêu cầu thay đổi nào đang chờ phê duyệt.</td></tr>`;
         return;
       }
 
-      submissionsTableBody.innerHTML = list.map(s => `
+      submissionsTableBody.innerHTML = list.map(s => {
+        const isStall = s.type === "Stall";
+        const badge = isStall 
+          ? `<span class="badge" style="padding:2px 4px;border-radius:4px;font-size:10px;background:#3b82f6;color:#fff;margin-left:4px;">Cửa hàng</span>`
+          : `<span class="badge" style="padding:2px 4px;border-radius:4px;font-size:10px;background:#8b5cf6;color:#fff;margin-left:4px;">Chủ quán</span>`;
+        const latLon = isStall ? `<code>${s.latitude.toFixed(6)}, ${s.longitude.toFixed(6)}</code>` : `-`;
+        const approveHandler = isStall ? `approveSubmission('${s.id}')` : `approveProfileChange('${s.id}')`;
+        const rejectHandler = isStall ? `openRejectModal('submission', '${s.id}')` : `openRejectModal('profile', '${s.id}')`;
+
+        return `
         <tr>
-          <td><b>${s.name}</b></td>
-          <td>${s.address}</td>
-          <td><code>${s.latitude.toFixed(6)}, ${s.longitude.toFixed(6)}</code></td>
-          <td><div style="max-height: 80px; overflow-y: auto; max-width: 350px; white-space: pre-wrap; font-size: 12px; color: var(--text-gray);">${s.originalHistory}</div></td>
+          <td><b>${escapeHtml(s.name)}</b> ${badge}</td>
+          <td>${escapeHtml(s.address)}</td>
+          <td>${latLon}</td>
+          <td><div style="max-height: 80px; overflow-y: auto; max-width: 350px; white-space: pre-wrap; font-size: 12px; color: var(--text-gray);">${escapeHtml(s.originalHistory)}</div></td>
           <td style="color: #F59E0B; font-weight: bold;">Chờ duyệt</td>
           <td>
-            <button class="action-btn approve" onclick="approveSubmission('${s.id}')">Duyệt</button>
-            <button class="action-btn reject" onclick="openRejectModal('submission', '${s.id}')">Từ chối</button>
+            <div style="display:flex;gap:6px;">
+              <button class="action-btn" onclick="viewSubmissionDetails('${s.id}', '${s.type}')" style="background:#512bd4;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Chi tiết</button>
+              <button class="action-btn approve" onclick="${approveHandler}">Duyệt</button>
+              <button class="action-btn reject" onclick="${rejectHandler}">Từ chối</button>
+            </div>
           </td>
         </tr>
-      `).join('');
+        `;
+      }).join('');
     }
   } catch (err) {
     console.error('Load submissions failed:', err);
   }
 }
+
+window.approveProfileChange = async (id) => {
+  if (!confirm('Bạn có chắc chắn muốn phê duyệt các thay đổi thông tin cá nhân của chủ quán này?')) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}/approve-profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify('Yêu cầu thay đổi thông tin cá nhân được phê duyệt.')
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      alert('Đã duyệt thay đổi thông tin cá nhân của chủ quán thành công.');
+      refreshDashboardData();
+    } else {
+      alert('Phê duyệt thất bại.');
+    }
+  } catch (err) {
+    console.error('Approve profile failed:', err);
+    alert('Lỗi mạng khi phê duyệt thông tin chủ quán.');
+  }
+};
+
+window.viewSubmissionDetails = async (id, type) => {
+  if (type === 'Stall') {
+    try {
+      const response = await fetch(`${defaultServerUrl}/api/admin/stalls/${id}/detail`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        
+        let menuHtml = '';
+        if (data.menuImages && data.menuImages.length > 0) {
+          menuHtml = `
+            <div style="margin-top: 15px;">
+              <b>Hình ảnh thực đơn (Menu):</b>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
+                ${data.menuImages.map(img => {
+                  let url = img.imageUrl;
+                  if (!url.startsWith('http')) {
+                    url = url.startsWith('/menus') ? `${defaultServerUrl}/images${url}` : `${defaultServerUrl}/images/${url.replace(/^\/+/, '')}`;
+                  }
+                  return `<img src="${url}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color);" />`;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        } else {
+          menuHtml = '<div style="margin-top: 15px; color: var(--text-gray);">Chưa cập nhật thực đơn.</div>';
+        }
+
+        const bodyHtml = `
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div><b>Tên quán ăn:</b> ${escapeHtml(data.name)}</div>
+            <div><b>Địa chỉ:</b> ${escapeHtml(data.address)}</div>
+            <div><b>Vị trí:</b> <code>${data.latitude.toFixed(6)}, ${data.longitude.toFixed(6)}</code></div>
+            <div><b>Lịch sử / Giới thiệu thuyết minh:</b></div>
+            <div style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); white-space: pre-wrap; font-size: 12px; line-height: 1.5;">${escapeHtml(data.originalHistory)}</div>
+            ${menuHtml}
+          </div>
+        `;
+        
+        detailModalTitle.innerText = `Duyệt Thông Tin Quán: ${data.name}`;
+        detailModalBody.innerHTML = bodyHtml;
+        detailModal.style.display = 'flex';
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  } else if (type === 'Profile') {
+    try {
+      const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}/detail`, {
+        headers: getAuthHeaders()
+      });
+      if (response.ok) {
+        const data = await response.json();
+        
+        const bodyHtml = `
+          <div style="display: flex; flex-direction: column; gap: 15px;">
+            <div><b>Tài khoản chủ quán:</b> <code>${escapeHtml(data.username)}</code></div>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+                  <th style="padding: 8px;">Thông tin</th>
+                  <th style="padding: 8px;">Hiện tại</th>
+                  <th style="padding: 8px; color: var(--primary-color);">Yêu cầu mới</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom: 1px dotted rgba(255,255,255,0.1);">
+                  <td style="padding: 8px; font-weight: bold;">Họ và Tên</td>
+                  <td style="padding: 8px;">${escapeHtml(data.fullName || '-')}</td>
+                  <td style="padding: 8px; color: #ff9d42; font-weight: bold;">${escapeHtml(data.pendingFullName || '-')}</td>
+                </tr>
+                <tr style="border-bottom: 1px dotted rgba(255,255,255,0.1);">
+                  <td style="padding: 8px; font-weight: bold;">Số điện thoại</td>
+                  <td style="padding: 8px;">${escapeHtml(data.phoneNumber || '-')}</td>
+                  <td style="padding: 8px; color: #ff9d42; font-weight: bold;">${escapeHtml(data.pendingPhoneNumber || '-')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px; font-weight: bold;">Email</td>
+                  <td style="padding: 8px;">${escapeHtml(data.email || '-')}</td>
+                  <td style="padding: 8px; color: #ff9d42; font-weight: bold;">${escapeHtml(data.pendingEmail || '-')}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+        
+        detailModalTitle.innerText = `Duyệt Hồ Sơ Chủ Quán: ${data.username}`;
+        detailModalBody.innerHTML = bodyHtml;
+        detailModal.style.display = 'flex';
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+};
 
 // Load visit dashboard stats
 async function loadDashboardStats() {
@@ -716,6 +841,8 @@ async function handleModalConfirm() {
     url = `${defaultServerUrl}/api/admin/registrations/${id}/reject`;
   } else if (modalActionType === 'submission') {
     url = `${defaultServerUrl}/api/admin/submissions/${id}/reject`;
+  } else if (modalActionType === 'profile') {
+    url = `${defaultServerUrl}/api/admin/users/${id}/reject-profile`;
   }
 
   try {
@@ -753,15 +880,37 @@ async function loadUsers() {
 
     if (response.ok) {
       allUsers = await response.json();
-      if (usersSearchInput) {
-        usersSearchInput.value = '';
-      }
-      renderUsersList(allUsers);
+      filterAndRenderUsers();
     }
   } catch (err) {
     console.error('Load users failed:', err);
     usersTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu người dùng.</td></tr>';
   }
+}
+
+function filterAndRenderUsers() {
+  const query = usersSearchInput ? usersSearchInput.value.toLowerCase().trim() : '';
+  const filterVal = usersActiveFilter ? usersActiveFilter.value : 'all';
+
+  const filtered = allUsers.filter(u => {
+    const matchesSearch = !query ||
+      (u.username && u.username.toLowerCase().includes(query)) ||
+      (u.fullName && u.fullName.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
+      (u.phoneNumber && u.phoneNumber.toLowerCase().includes(query));
+
+    const isActive = u.isActive !== false;
+    let matchesFilter = true;
+    if (filterVal === 'active') {
+      matchesFilter = isActive;
+    } else if (filterVal === 'inactive') {
+      matchesFilter = !isActive;
+    }
+
+    return matchesSearch && matchesFilter;
+  });
+
+  renderUsersList(filtered);
 }
 
 function renderUsersList(users) {
@@ -776,7 +925,14 @@ function renderUsersList(users) {
   users.forEach(u => {
     const tr = document.createElement('tr');
     const lastActiveDate = u.lastActive ? new Date(u.lastActive).toLocaleString('vi-VN') : '-';
-    const verifiedStatus = u.isVerified ? '<span style="color:#00ff66;">Đã kích hoạt</span>' : '<span style="color:#ff3333;">Chưa kích hoạt</span>';
+    
+    const statusText = `
+      <div style="font-size:11px;">${u.isVerified ? '<span style="color:#00ff66;">✓ Đã duyệt</span>' : '<span style="color:#ff9d42;">⏳ Chờ duyệt</span>'}</div>
+      <div style="font-size:11px;margin-top:2px;">${u.isActive ? '<span style="color:#00ff66;">● Hoạt động</span>' : '<span style="color:#ef4444;">■ Ngưng HĐ</span>'}</div>
+    `;
+
+    const activeBtnText = u.isActive ? 'Ngưng HĐ' : 'Kích hoạt';
+    const activeBtnBg = u.isActive ? '#64748b' : '#10b981';
 
     tr.innerHTML = `
       <td><b>${escapeHtml(u.username)}</b></td>
@@ -784,11 +940,12 @@ function renderUsersList(users) {
       <td><span class="badge" style="padding:2px 6px;border-radius:4px;font-size:11px;background:${u.role === 'Owner' ? '#8b5cf6' : '#6b7280'};color:#fff;">${u.role}</span></td>
       <td>${escapeHtml(u.phoneNumber || '-')}</td>
       <td>${escapeHtml(u.email || '-')}</td>
-      <td>${verifiedStatus}</td>
+      <td>${statusText}</td>
       <td>${lastActiveDate}</td>
       <td>
         <div style="display:flex;gap:6px;">
           <button class="btn" onclick="viewUserDetails('${u.id}')" style="background:#512bd4;font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">Chi tiết</button>
+          <button class="btn" onclick="toggleUserActive('${u.id}')" style="background:${activeBtnBg};font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">${activeBtnText}</button>
           <button class="btn btn-danger" onclick="deleteUser('${u.id}')" style="background:#ef4444;font-size:11px;padding:4px 8px;border-radius:4px;">Xóa</button>
         </div>
       </td>
@@ -796,6 +953,44 @@ function renderUsersList(users) {
     usersTableBody.appendChild(tr);
   });
 }
+
+window.toggleUserActive = async (id) => {
+  const user = allUsers.find(u => u.id === id);
+  const isCurrentlyActive = user ? user.isActive !== false : true;
+
+  if (isCurrentlyActive) {
+    const stallNames = user && user.stallNames && user.stallNames.length > 0 
+      ? user.stallNames.join(', ') 
+      : '';
+    const stallWarning = stallNames 
+      ? ` cửa hàng (${stallNames})` 
+      : ' cửa hàng của họ';
+
+    if (!confirm(`Nếu ngưng hoạt động tài khoản này thì${stallWarning} cũng sẽ bị ngưng hoạt động theo. Bạn có đồng ý tiếp tục?`)) {
+      return;
+    }
+  }
+
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/users/${id}/toggle-active`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      const data = await response.json();
+      alert(data.isActive ? 'Tài khoản đã được hoạt động trở lại.' : 'Tài khoản đã ngưng hoạt động thành công.');
+      refreshDashboardData();
+    } else {
+      alert('Thay đổi trạng thái tài khoản thất bại.');
+    }
+  } catch (err) {
+    console.error('Toggle user active failed:', err);
+    alert('Lỗi mạng khi thay đổi trạng thái tài khoản.');
+  }
+};
 
 window.deleteUser = async (id) => {
   const user = allUsers.find(u => u.id === id);
@@ -842,15 +1037,36 @@ async function loadAllStalls() {
 
     if (response.ok) {
       allStalls = await response.json();
-      if (stallsSearchInput) {
-        stallsSearchInput.value = '';
-      }
-      renderStallsList(allStalls);
+      filterAndRenderStalls();
     }
   } catch (err) {
     console.error('Load stalls failed:', err);
-    stallsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu quán ăn.</td></tr>';
+    stallsTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#ef4444;">Lỗi tải dữ liệu quán ăn.</td></tr>';
   }
+}
+
+function filterAndRenderStalls() {
+  const query = stallsSearchInput ? stallsSearchInput.value.toLowerCase().trim() : '';
+  const filterVal = stallsActiveFilter ? stallsActiveFilter.value : 'all';
+
+  const filtered = allStalls.filter(s => {
+    const matchesSearch = !query ||
+      (s.name && s.name.toLowerCase().includes(query)) ||
+      (s.address && s.address.toLowerCase().includes(query)) ||
+      (s.ownerUsername && s.ownerUsername.toLowerCase().includes(query));
+
+    const isActive = s.isActive !== false;
+    let matchesFilter = true;
+    if (filterVal === 'active') {
+      matchesFilter = isActive;
+    } else if (filterVal === 'inactive') {
+      matchesFilter = !isActive;
+    }
+
+    return matchesSearch && matchesFilter;
+  });
+
+  renderStallsList(filtered);
 }
 
 function renderStallsList(stalls) {
@@ -858,13 +1074,20 @@ function renderStallsList(stalls) {
   stallsTableBody.innerHTML = '';
 
   if (stalls.length === 0) {
-    stallsTableBody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-gray);">Không tìm thấy quán ăn nào.</td></tr>';
+    stallsTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-gray);">Không tìm thấy quán ăn nào.</td></tr>';
     return;
   }
 
   stalls.forEach(s => {
     const tr = document.createElement('tr');
-    const status = s.isVerified ? '<span style="color:#00ff66;">Đã duyệt</span>' : '<span style="color:#ff9d42;">Chờ duyệt</span>';
+    
+    const statusText = `
+      <div style="font-size:11px;">${s.isVerified ? '<span style="color:#00ff66;">✓ Đã duyệt</span>' : '<span style="color:#ff9d42;">⏳ Chờ duyệt</span>'}</div>
+      <div style="font-size:11px;margin-top:2px;">${s.isActive ? '<span style="color:#00ff66;">● Hoạt động</span>' : '<span style="color:#ef4444;">■ Ngưng HĐ</span>'}</div>
+    `;
+
+    const activeBtnText = s.isActive ? 'Ngưng HĐ' : 'Kích hoạt';
+    const activeBtnBg = s.isActive ? '#64748b' : '#10b981';
 
     tr.innerHTML = `
       <td><b>${escapeHtml(s.name)}</b></td>
@@ -872,10 +1095,11 @@ function renderStallsList(stalls) {
       <td>${s.latitude.toFixed(6)}</td>
       <td>${s.longitude.toFixed(6)}</td>
       <td>${escapeHtml(s.ownerUsername)}</td>
-      <td>${status}</td>
+      <td>${statusText}</td>
       <td>
         <div style="display:flex;gap:6px;">
           <button class="btn" onclick="viewStallDetails('${s.id}')" style="background:#512bd4;font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">Chi tiết</button>
+          <button class="btn" onclick="toggleStallActive('${s.id}')" style="background:${activeBtnBg};font-size:11px;padding:4px 8px;border-radius:4px;color:#fff;cursor:pointer;">${activeBtnText}</button>
           <button class="btn btn-danger" onclick="deleteStall('${s.id}')" style="background:#ef4444;font-size:11px;padding:4px 8px;border-radius:4px;">Xóa</button>
         </div>
       </td>
@@ -883,6 +1107,28 @@ function renderStallsList(stalls) {
     stallsTableBody.appendChild(tr);
   });
 }
+
+window.toggleStallActive = async (id) => {
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/stalls/${id}/toggle-active`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      const data = await response.json();
+      alert(data.isActive ? 'Quán ăn đã được hoạt động trở lại.' : 'Quán ăn đã ngưng hoạt động thành công.');
+      refreshDashboardData();
+    } else {
+      alert('Thay đổi trạng thái quán ăn thất bại.');
+    }
+  } catch (err) {
+    console.error('Toggle stall active failed:', err);
+    alert('Lỗi mạng khi thay đổi trạng thái quán ăn.');
+  }
+};
 
 window.deleteStall = async (id) => {
   if (!confirm('Bạn có chắc chắn muốn xóa địa điểm quán ăn này? Hành động này sẽ xóa vĩnh viễn các bản dịch, audio, và lượt ghé liên quan.')) return;

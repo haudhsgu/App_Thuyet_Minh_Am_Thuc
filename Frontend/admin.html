@@ -646,12 +646,12 @@
         <table>
           <thead>
             <tr>
-              <th>Tên Quán</th>
-              <th>Địa chỉ</th>
+              <th>Đối tượng / Tên</th>
+              <th>Địa chỉ / Chi tiết</th>
               <th>Vị trí (Lat, Lon)</th>
-              <th>Thuyết minh chi tiết</th>
-              <th>Trạng thái hiện tại</th>
-              <th style="width: 200px;">Hành động</th>
+              <th>Nội dung thay đổi</th>
+              <th>Trạng thái</th>
+              <th style="width: 220px;">Hành động</th>
             </tr>
           </thead>
           <tbody id="submissions-table-body">
@@ -756,10 +756,16 @@
         <b>Quản lý tài khoản:</b> Xem danh sách tài khoản người dùng và thực hiện xóa tài khoản nếu cần thiết (lưu ý:
         tài khoản chủ quán phải được xóa địa điểm trước khi xóa tài khoản).
       </div>
-      <div style="margin-bottom: 15px;">
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
         <input type="text" id="users-search-input" placeholder="Tìm tài khoản (username, họ tên, email, sđt)..."
           style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+        <select id="users-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngưng hoạt động</option>
+        </select>
       </div>
       <div class="admin-table-wrapper">
         <table>
@@ -790,10 +796,16 @@
         <b>Quản lý địa điểm quán ăn:</b> Xem danh sách các quán ăn trong hệ thống và thực hiện xóa quán ăn nếu cần
         thiết.
       </div>
-      <div style="margin-bottom: 15px;">
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
         <input type="text" id="stalls-search-input" placeholder="Tìm quán ăn (tên quán, địa chỉ, chủ quán)..."
           style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+        <select id="stalls-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngưng hoạt động</option>
+        </select>
       </div>
       <div class="admin-table-wrapper">
         <table>

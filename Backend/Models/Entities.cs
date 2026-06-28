@@ -39,6 +39,12 @@ namespace Backend.Models
         public bool HasPaid { get; set; } = false;
 
         public DateTime LastActive { get; set; } = DateTime.UtcNow;
+
+        [Column("is_Active")]
+        public bool IsActive { get; set; } = true;
+
+        [Column("cccdEncrypted")]
+        public string? CccdEncrypted { get; set; }
     }
 
     public class UserTelemetry
@@ -87,6 +93,9 @@ namespace Backend.Models
         public bool IsVerified { get; set; } = true; // True for seeded stalls, False for new owner submissions
 
         public string AdminNote { get; set; } = string.Empty;
+
+        [Column("is_Active")]
+        public bool IsActive { get; set; } = true;
     }
 
     public class Localization
@@ -129,6 +138,12 @@ namespace Backend.Models
 
         [Required]
         public string CccdEncrypted { get; set; } = string.Empty; // PII encrypted using AES-256
+
+        [Column("numberphone")]
+        public string? PhoneNumber { get; set; }
+
+        [Column("email")]
+        public string? Email { get; set; }
 
         [Required]
         public string Status { get; set; } = "Pending"; // "Pending", "Approved", "Rejected"
@@ -262,6 +277,29 @@ namespace Backend.Models
         public bool IsMainImage { get; set; } = false;
 
         public int DisplayOrder { get; set; } = 0;
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class PendingUserProfileChange
+    {
+        [Key]
+        public Guid Id { get; set; } = Guid.NewGuid();
+
+        [Required]
+        public Guid UserId { get; set; }
+
+        [ForeignKey(nameof(UserId))]
+        public User? User { get; set; }
+
+        [Required]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        public string PhoneNumber { get; set; } = string.Empty;
+
+        [Required]
+        public string Email { get; set; } = string.Empty;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

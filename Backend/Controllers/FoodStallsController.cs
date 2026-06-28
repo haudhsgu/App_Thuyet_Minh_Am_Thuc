@@ -50,7 +50,7 @@ namespace Backend.Controllers
                 lang = "en";
             }
 
-            var stalls = await _dbContext.FoodStalls.AsNoTracking().ToListAsync();
+            var stalls = await _dbContext.FoodStalls.AsNoTracking().Where(s => s.IsActive).ToListAsync();
             var stallIds = stalls.Select(s => s.Id).ToList();
 
             var localizations = await _dbContext.Localizations

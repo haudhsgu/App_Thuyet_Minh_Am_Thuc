@@ -93,16 +93,23 @@ namespace Backend.Controllers
             {
                 reg.User.IsVerified = true;
                 reg.User.IsPoiOwnerVerified = true;
-                _dbContext.Entry(reg.User).State = EntityState.Modified;
 
-                // Send a notification to the owner
-                _dbContext.Notifications.Add(new Notification
-                {
-                    Id = Guid.NewGuid(),
-                    UserId = reg.UserId,
-                    Message = "Tài khoản chủ quán của bạn đã được Admin phê duyệt! Bạn hiện có thể đăng nhập để quản lý.",
-                    CreatedAt = DateTime.UtcNow
-                });
+                // Copy profile info from registration
+                reg.User.FullName = reg.FullName;
+                reg.User.PhoneNumber = reg.PhoneNumber;
+                reg.User.Email = reg.Email;
+                reg.User.CccdEncrypted = reg.CccdEncrypted;
+
+                _dbContext.Entry(reg.User).State = EntityState.Modified;
+ 
+                 // Send a notification to the owner
+                 _dbContext.Notifications.Add(new Notification
+                 {
+                     Id = Guid.NewGuid(),
+                     UserId = reg.UserId,
+                     Message = "Tài khoản chủ quán của bạn đã được Admin phê duyệt! Bạn hiện có thể đăng nhập để quản lý.",
+                     CreatedAt = DateTime.UtcNow
+                 });
             }
 
             // Also approve their registered stall automatically so it goes live initially
@@ -157,18 +164,111 @@ namespace Backend.Controllers
             return Ok(new { success = true, message = "Owner registration rejected successfully." });
         }
 
-        // 5. GET Unverified Submissions (Stalls waiting for description approval)
+        // 5. GET Unverified Submissions (Stalls and Owner profile updates waiting for approval)
         [HttpGet("submissions")]
         public async Task<IActionResult> GetSubmissions()
         {
             var admin = await GetAdminUserAsync();
             if (admin == null) return Unauthorized("Admin privileges required.");
 
+            // 1. Pending Stalls
             var pendingStalls = await _dbContext.FoodStalls
                 .Where(s => !s.IsVerified && s.OwnerId != null)
+                .Select(s => new {
+                    Type = "Stall",
+                    Id = s.Id,
+                    Name = s.Name,
+                    Address = s.Address,
+                    Latitude = s.Latitude,
+                    Longitude = s.Longitude,
+                    OriginalHistory = s.OriginalHistory,
+                    AdminNote = s.AdminNote,
+                    OwnerUsername = _dbContext.Users.Where(u => u.Id == s.OwnerId).Select(u => u.Username).FirstOrDefault() ?? "Chủ quán"
+                })
                 .ToListAsync();
 
-            return Ok(pendingStalls);
+            // 2. Pending Owner Profiles
+            var pendingProfiles = await _dbContext.PendingUserProfileChanges
+                .Select(u => new {
+                    Type = "Profile",
+                    Id = u.UserId,
+                    Name = _dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.Username).FirstOrDefault() ?? "Chủ quán",
+                    Address = $"Yêu cầu thay đổi thông tin: Họ tên ({u.FullName}), SĐT ({u.PhoneNumber}), Email ({u.Email})",
+                    Latitude = 0.0,
+                    Longitude = 0.0,
+                    OriginalHistory = $"Thông tin hiện tại: Họ tên ({_dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.FullName).FirstOrDefault() ?? ""}), SĐT ({_dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.PhoneNumber).FirstOrDefault() ?? ""}), Email ({_dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.Email).FirstOrDefault() ?? ""})",
+                    AdminNote = string.Empty,
+                    OwnerUsername = _dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.Username).FirstOrDefault() ?? "Chủ quán"
+                })
+                .ToListAsync();
+
+            var combined = pendingStalls.Cast<object>().Concat(pendingProfiles.Cast<object>()).ToList();
+            return Ok(combined);
+        }
+
+        // 5a. POST Approve User Profile Submission
+        [HttpPost("users/{id}/approve-profile")]
+        public async Task<IActionResult> ApproveUserProfile(Guid id, [FromBody] string adminNote)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null) return NotFound("User not found.");
+
+            var pendingChange = await _dbContext.PendingUserProfileChanges.FirstOrDefaultAsync(p => p.UserId == id);
+            if (pendingChange == null) return BadRequest("No pending profile change found.");
+
+            // Apply changes
+            user.FullName = pendingChange.FullName;
+            user.PhoneNumber = pendingChange.PhoneNumber;
+            user.Email = pendingChange.Email;
+
+            _dbContext.Entry(user).State = EntityState.Modified;
+
+            // Delete pending record
+            _dbContext.PendingUserProfileChanges.Remove(pendingChange);
+
+            // Send notification
+            _dbContext.Notifications.Add(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Message = $"Thông tin cá nhân mới của bạn đã được Admin phê duyệt thành công!",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _dbContext.SaveChangesAsync();
+            return Ok(new { success = true, message = "Profile changes approved." });
+        }
+
+        // 5b. POST Reject User Profile Submission
+        [HttpPost("users/{id}/reject-profile")]
+        public async Task<IActionResult> RejectUserProfile(Guid id, [FromBody] string adminNote)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null) return NotFound("User not found.");
+
+            var pendingChange = await _dbContext.PendingUserProfileChanges.FirstOrDefaultAsync(p => p.UserId == id);
+            if (pendingChange == null) return BadRequest("No pending profile change found.");
+
+            // Delete pending record
+            _dbContext.PendingUserProfileChanges.Remove(pendingChange);
+
+            // Send notification
+            _dbContext.Notifications.Add(new Notification
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Message = $"Yêu cầu thay đổi thông tin cá nhân của bạn bị từ chối. Lý do: {adminNote}",
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _dbContext.SaveChangesAsync();
+            return Ok(new { success = true, message = "Profile changes rejected." });
         }
 
         // 6. POST Generate translations and audio for all stalls
@@ -532,10 +632,40 @@ namespace Backend.Controllers
                 u.HasPaidAccess,
                 u.IsVerified,
                 u.LastActive,
+                u.IsActive,
                 StallNames = stallsByOwner.Where(s => s.OwnerId == u.Id).Select(s => s.Name).ToList()
             }).ToList();
 
             return Ok(result);
+        }
+
+        // 12a. POST Toggle User Active Status
+        [HttpPost("users/{id}/toggle-active")]
+        public async Task<IActionResult> ToggleUserActive(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var user = await _dbContext.Users.FindAsync(id);
+            if (user == null) return NotFound("User not found.");
+
+            user.IsActive = !user.IsActive;
+            _dbContext.Entry(user).State = EntityState.Modified;
+
+            // If deactivating user, also deactivate all owned stalls
+            if (!user.IsActive)
+            {
+                var stalls = await _dbContext.FoodStalls.Where(s => s.OwnerId == id).ToListAsync();
+                foreach (var stall in stalls)
+                {
+                    stall.IsActive = false;
+                    _dbContext.Entry(stall).State = EntityState.Modified;
+                }
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, isActive = user.IsActive });
         }
 
         // 13. DELETE User (Requires Admin and check Owner Stalls first)
@@ -607,11 +737,42 @@ namespace Backend.Controllers
                     s.Longitude,
                     s.IsVerified,
                     s.OwnerId,
+                    s.IsActive,
                     OwnerUsername = _dbContext.Users.Where(u => u.Id == s.OwnerId).Select(u => u.Username).FirstOrDefault() ?? "Hệ thống"
                 })
                 .ToListAsync();
 
             return Ok(stalls);
+        }
+
+        // 14a. POST Toggle Stall Active Status
+        [HttpPost("stalls/{id}/toggle-active")]
+        public async Task<IActionResult> ToggleStallActive(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var stall = await _dbContext.FoodStalls.FindAsync(id);
+            if (stall == null) return NotFound("Stall not found.");
+
+            stall.IsActive = !stall.IsActive;
+            _dbContext.Entry(stall).State = EntityState.Modified;
+
+            // Send notification to the owner if deactivated
+            if (!stall.IsActive && stall.OwnerId != null)
+            {
+                _dbContext.Notifications.Add(new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = stall.OwnerId.Value,
+                    Message = $"Cửa hàng '{stall.Name}' của bạn đã bị ngưng hoạt động.",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { success = true, isActive = stall.IsActive });
         }
 
         // 15. DELETE Stall
@@ -675,9 +836,13 @@ namespace Backend.Controllers
                     s.Id,
                     s.Name,
                     s.Address,
-                    s.IsVerified
+                    s.IsVerified,
+                    s.IsActive
                 })
                 .ToListAsync();
+
+            var pendingProfile = await _dbContext.PendingUserProfileChanges
+                .FirstOrDefaultAsync(p => p.UserId == id);
 
             return Ok(new
             {
@@ -690,6 +855,11 @@ namespace Backend.Controllers
                 user.HasPaidAccess,
                 user.IsVerified,
                 user.LastActive,
+                user.IsActive,
+                pendingFullName = pendingProfile?.FullName,
+                pendingPhoneNumber = pendingProfile?.PhoneNumber,
+                pendingEmail = pendingProfile?.Email,
+                isProfilePendingApproval = pendingProfile != null,
                 Registration = reg == null ? null : new
                 {
                     reg.Id,
@@ -747,6 +917,7 @@ namespace Backend.Controllers
                 stall.Longitude,
                 stall.OriginalHistory,
                 stall.IsVerified,
+                stall.IsActive,
                 stall.AdminNote,
                 OwnerUsername = ownerUsername,
                 Localizations = localizations,

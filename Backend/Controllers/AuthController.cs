@@ -34,11 +34,14 @@ namespace Backend.Controllers
             public string Password { get; set; } = string.Empty;
             public string FullName { get; set; } = string.Empty;
             public string Cccd { get; set; } = string.Empty; // Identity Card (PII)
+            public string PhoneNumber { get; set; } = string.Empty;
+            public string Email { get; set; } = string.Empty;
             public string StallName { get; set; } = string.Empty;
             public string StallAddress { get; set; } = string.Empty;
             public double Latitude { get; set; }
             public double Longitude { get; set; }
             public string Description { get; set; } = string.Empty;
+            public List<IFormFile>? MenuImages { get; set; }
         }
 
         public class RegisterPublicRequest
@@ -51,7 +54,7 @@ namespace Backend.Controllers
         }
 
         [HttpPost("register-owner")]
-        public async Task<IActionResult> RegisterOwner([FromBody] RegisterOwnerRequest request)
+        public async Task<IActionResult> RegisterOwner([FromForm] RegisterOwnerRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
                 return BadRequest("Username and Password are required.");
@@ -89,6 +92,8 @@ namespace Backend.Controllers
                         Id = Guid.NewGuid(),
                         UserId = user.Id,
                         FullName = request.FullName,
+                        PhoneNumber = request.PhoneNumber,
+                        Email = request.Email,
                         CccdEncrypted = cccdEncrypted,
                         Status = "Pending",
                         CreatedAt = DateTime.UtcNow
@@ -108,6 +113,42 @@ namespace Backend.Controllers
                         IsVerified = false // Must be approved by Admin
                     };
                     _dbContext.FoodStalls.Add(stall);
+
+                    // 4. Save Menu Images if provided
+                    if (request.MenuImages != null && request.MenuImages.Count > 0)
+                    {
+                        var directoryPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "images", "menus");
+                        if (!Directory.Exists(directoryPath))
+                        {
+                            Directory.CreateDirectory(directoryPath);
+                        }
+
+                        foreach (var file in request.MenuImages)
+                        {
+                            if (file.Length > 0)
+                            {
+                                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                                if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".webp")
+                                {
+                                    var fileName = $"{Guid.NewGuid()}{ext}";
+                                    var filePath = Path.Combine(directoryPath, fileName);
+
+                                    using (var stream = new FileStream(filePath, FileMode.Create))
+                                    {
+                                        await file.CopyToAsync(stream);
+                                    }
+
+                                    var menuImage = new StallMenuImage
+                                    {
+                                        FoodStallId = stall.Id,
+                                        ImageUrl = $"/menus/{fileName}",
+                                        CreatedAt = DateTime.UtcNow
+                                    };
+                                    _dbContext.StallMenuImages.Add(menuImage);
+                                }
+                            }
+                        }
+                    }
 
                     await _dbContext.SaveChangesAsync();
                     await transaction.CommitAsync();
@@ -214,6 +255,9 @@ namespace Backend.Controllers
             }
             else
             {
+                if (!user.IsActive)
+                    return StatusCode(403, "Tài khoản của bạn đã bị ngưng hoạt động.");
+
                 user.LastActive = DateTime.UtcNow;
                 await _dbContext.SaveChangesAsync();
             }
@@ -266,6 +310,9 @@ namespace Backend.Controllers
             if (user == null)
                 return Unauthorized("Invalid username or password.");
 
+            if (!user.IsActive)
+                return StatusCode(403, "Tài khoản của bạn đã bị ngưng hoạt động.");
+
             if (!EncryptionHelper.VerifyPassword(request.Password, user.PasswordHash, user.PasswordSalt))
                 return Unauthorized("Invalid username or password.");
 
@@ -314,6 +361,9 @@ namespace Backend.Controllers
             if (user == null)
                 return Unauthorized("Invalid or expired session token.");
 
+            var pendingProfile = await _dbContext.PendingUserProfileChanges
+                .FirstOrDefaultAsync(p => p.UserId == user.Id);
+
             return Ok(new
             {
                 id = user.Id,
@@ -325,7 +375,14 @@ namespace Backend.Controllers
                 fullName = user.FullName,
                 email = user.Email,
                 phoneNumber = user.PhoneNumber,
-                avatarUrl = user.AvatarUrl
+                avatarUrl = user.AvatarUrl,
+                isActive = user.IsActive,
+                pendingProfile = pendingProfile == null ? null : new
+                {
+                    fullName = pendingProfile.FullName,
+                    phoneNumber = pendingProfile.PhoneNumber,
+                    email = pendingProfile.Email
+                }
             });
         }
 

@@ -227,6 +227,15 @@ const aiResponseDiv = document.getElementById('ai-response');
 const aiApplyBtn = document.getElementById('ai-apply-btn');
 const aiStatusText = document.getElementById('ai-status-text');
 
+// Profile Form Elements
+const profileForm = document.getElementById('profile-form');
+const profileUsernameInput = document.getElementById('profileUsername');
+const profileFullnameInput = document.getElementById('profileFullname');
+const profilePhoneInput = document.getElementById('profilePhone');
+const profileEmailInput = document.getElementById('profileEmail');
+const profileStatusSpan = document.getElementById('profile-status');
+const profileFeedback = document.getElementById('profile-feedback');
+
 // Init details on load
 window.addEventListener('DOMContentLoaded', () => {
   ownerNameSpan.innerText = `Chủ quán: ${username}`;
@@ -249,9 +258,49 @@ window.addEventListener('DOMContentLoaded', () => {
   loadStallDetails();
   loadNotifications();
   loadAiUsage();
+  loadOwnerProfile();
 
   aiEnhanceBtn.addEventListener('click', enhanceDescription);
   aiApplyBtn.addEventListener('click', applyAiDescription);
+  
+  if (profileForm) {
+    profileForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      profileFeedback.innerText = '';
+      profileFeedback.style.color = 'inherit';
+
+      const payload = {
+        fullName: profileFullnameInput.value.trim(),
+        phoneNumber: profilePhoneInput.value.trim(),
+        email: profileEmailInput.value.trim()
+      };
+
+      try {
+        const response = await fetch(`${defaultServerUrl}/api/owner/profile`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+          profileFeedback.innerText = 'Gửi yêu cầu đổi thông tin thành công. Chờ Admin phê duyệt.';
+          profileFeedback.style.color = '#10B981';
+          await loadOwnerProfile();
+        } else {
+          const errText = await response.text();
+          profileFeedback.innerText = errText || 'Cập nhật thất bại.';
+          profileFeedback.style.color = '#ff3333';
+        }
+      } catch (err) {
+        console.error('Update profile failed:', err);
+        profileFeedback.innerText = 'Lỗi kết nối máy chủ.';
+        profileFeedback.style.color = '#ff3333';
+      }
+    });
+  }
   // Tab switching (Owner page): mirror admin tab behavior
   const tabButtons = document.querySelectorAll('.owner-tabs .tab-btn');
   const ownerMainContent = document.querySelector('main.owner-layout');
@@ -314,6 +363,42 @@ async function loadStallDetails() {
     }
   } catch (err) {
     console.error('Error loading stall:', err);
+  }
+}
+
+async function loadOwnerProfile() {
+  if (!profileUsernameInput) return;
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/auth/me`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (response.ok) {
+      const user = await response.json();
+      profileUsernameInput.value = user.username || '';
+
+      if (user.pendingProfile) {
+        profileFullnameInput.value = user.pendingProfile.fullName || '';
+        profilePhoneInput.value = user.pendingProfile.phoneNumber || '';
+        profileEmailInput.value = user.pendingProfile.email || '';
+
+        profileStatusSpan.innerText = 'Chờ duyệt hồ sơ';
+        profileStatusSpan.style.background = '#F59E0B';
+        profileStatusSpan.style.color = '#ffffff';
+      } else {
+        profileFullnameInput.value = user.fullName || '';
+        profilePhoneInput.value = user.phoneNumber || '';
+        profileEmailInput.value = user.email || '';
+
+        profileStatusSpan.innerText = 'Đã kích hoạt';
+        profileStatusSpan.style.background = '#10B981';
+        profileStatusSpan.style.color = '#ffffff';
+      }
+    }
+  } catch (err) {
+    console.error('Error loading owner profile:', err);
   }
 }
 

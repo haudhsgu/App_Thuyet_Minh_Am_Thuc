@@ -76,25 +76,30 @@ registerForm.addEventListener('submit', async (e) => {
   errorMessage.innerText = '';
   successMessage.innerText = '';
 
-  const payload = {
-    username: document.getElementById('username').value.trim(),
-    password: document.getElementById('password').value.trim(),
-    fullName: document.getElementById('fullname').value.trim(),
-    cccd: document.getElementById('cccd').value.trim(),
-    stallName: document.getElementById('stallName').value.trim(),
-    stallAddress: document.getElementById('stallAddress').value.trim(),
-    latitude: parseFloat(latInput.value),
-    longitude: parseFloat(lngInput.value),
-    description: document.getElementById('description').value.trim()
-  };
+  const formData = new FormData();
+  formData.append('username', document.getElementById('username').value.trim());
+  formData.append('password', document.getElementById('password').value.trim());
+  formData.append('fullName', document.getElementById('fullname').value.trim());
+  formData.append('cccd', document.getElementById('cccd').value.trim());
+  formData.append('phoneNumber', document.getElementById('phone').value.trim());
+  formData.append('email', document.getElementById('email').value.trim());
+  formData.append('stallName', document.getElementById('stallName').value.trim());
+  formData.append('stallAddress', document.getElementById('stallAddress').value.trim());
+  formData.append('latitude', parseFloat(latInput.value));
+  formData.append('longitude', parseFloat(lngInput.value));
+  formData.append('description', document.getElementById('description').value.trim());
+
+  const menuFileInput = document.getElementById('menuImages');
+  if (menuFileInput && menuFileInput.files && menuFileInput.files.length > 0) {
+    for (let i = 0; i < menuFileInput.files.length; i++) {
+      formData.append('menuImages', menuFileInput.files[i]);
+    }
+  }
 
   try {
     const response = await fetch(`${defaultServerUrl}/api/auth/register-owner`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+      body: formData
     });
 
     if (response.ok) {

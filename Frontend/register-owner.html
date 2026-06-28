@@ -154,6 +154,17 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <div class="form-group">
+          <label for="phone">Số điện thoại</label>
+          <input type="tel" id="phone" class="form-control" placeholder="Số điện thoại liên hệ" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Địa chỉ Email</label>
+          <input type="email" id="email" class="form-control" placeholder="Địa chỉ email" required>
+        </div>
+      </div>
+
       <h3 style="font-size: 16px; color: var(--primary-color); margin-top: 15px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,122,0,0.2); padding-bottom: 6px;">2. Thông tin quán ăn đăng ký</h3>
 
       <div class="form-group">
@@ -185,6 +196,11 @@
       <div class="form-group">
         <label for="description">Giới thiệu thuyết minh quán ăn (Lịch sử, món nổi tiếng...)</label>
         <textarea id="description" class="form-control" style="height: 100px; resize: vertical;" placeholder="Nhập bài thuyết minh chi tiết bằng tiếng Việt..." required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="menuImages">Hình ảnh thực đơn quán ăn (Menu - Chọn nhiều ảnh):</label>
+        <input type="file" id="menuImages" class="form-control" accept="image/jpeg, image/png, image/webp" multiple>
       </div>
 
       <button type="submit" class="btn register-btn">Gửi Đơn Đăng Ký</button>

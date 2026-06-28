@@ -69,6 +69,18 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // For audio files, prefer the network so regenerations are served immediately.
+  if (event.request.method === 'GET' && (url.pathname.includes('/audio/') || url.pathname.endsWith('.mp3'))) {
+    event.respondWith(
+      fetch(event.request).then(networkResponse => {
+        const cloned = networkResponse.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cloned));
+        return networkResponse;
+      }).catch(() => caches.match(event.request).then(cachedResponse => cachedResponse ?? new Response('Network error occurred', { status: 408 })))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) {
@@ -81,7 +93,6 @@ self.addEventListener('fetch', event => {
           (url.hostname.includes('tile.openstreetmap.org') || 
            url.pathname.includes('/tile/') ||
            url.pathname.includes('/images/') ||
-           url.pathname.includes('/audio/') ||
            url.pathname.endsWith('.mp3'))
         ) {
           return caches.open(CACHE_NAME).then(cache => {

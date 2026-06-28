@@ -307,35 +307,71 @@
       </div>
     </div>
 
-    <!-- Right Panel: AI Advisor tool -->
-    <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
-      <div>
+    <!-- Right Column: Profile & AI Advisor -->
+    <div style="display: flex; flex-direction: column; gap: 30px;">
+      <!-- Profile Panel -->
+      <div class="card-panel">
         <div class="panel-title">
-          <span>Trợ lý AI Advisor (Gemini 2.5 Flash)</span>
-          <span id="ai-quota" style="font-size: 11px; color: var(--text-gray);">Đang tải quota...</span>
+          <span>Thông tin cá nhân chủ quán</span>
+          <span id="profile-status" style="font-size: 11px; padding: 4px 8px; border-radius: 6px; font-weight: 600;">Trạng thái</span>
         </div>
 
-        <p style="font-size: 13px; color: var(--text-gray); line-height: 1.4; margin-bottom: 20px;">
-          Bạn có thể nhờ AI tối ưu hóa thuyết minh quán ăn của mình để hấp dẫn hơn. AI sẽ viết lại mô tả với phong cách
-          hướng dẫn viên sinh động (200-300 từ) dựa trên thông tin gốc mà không bịa thêm dữ liệu.
-        </p>
+        <form id="profile-form">
+          <div class="form-group">
+            <label for="profileUsername">Tên đăng nhập (Chỉ xem)</label>
+            <input type="text" id="profileUsername" class="form-control" readonly>
+          </div>
 
-        <button class="btn ai-btn" id="ai-enhance-btn">
-          <span>🤖</span> Tối ưu mô tả bằng AI Advisor
-        </button>
+          <div class="form-group">
+            <label for="profileFullname">Họ và Tên</label>
+            <input type="text" id="profileFullname" class="form-control" required>
+          </div>
 
-        <div class="ai-response-area" id="ai-response">
-          Kết quả tối ưu hóa bằng AI của bạn sẽ hiển thị tại đây...
-        </div>
+          <div class="form-group">
+            <label for="profilePhone">Số điện thoại</label>
+            <input type="text" id="profilePhone" class="form-control" required>
+          </div>
+
+          <div class="form-group">
+            <label for="profileEmail">Email</label>
+            <input type="email" id="profileEmail" class="form-control" required>
+          </div>
+
+          <button type="submit" class="btn" style="width: 100%; padding: 12px; font-size: 13px; background: #3b82f6;">Lưu & Gửi phê duyệt thông tin</button>
+          <div id="profile-feedback" style="text-align: center; margin-top: 10px; font-size: 12px; font-weight: 600;"></div>
+        </form>
       </div>
 
-      <div
-        style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
-        <button class="btn ai-btn" id="ai-apply-btn"
-          style="background: #10b981; font-size: 12px; padding: 6px 12px; width: auto; display: none;">
-          ✓ Áp dụng mô tả này
-        </button>
-        <span id="ai-status-text" style="font-size: 11px; color: var(--text-gray);"></span>
+      <!-- AI Advisor Panel -->
+      <div class="card-panel" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div class="panel-title">
+            <span>Trợ lý AI Advisor (Gemini 2.5 Flash)</span>
+            <span id="ai-quota" style="font-size: 11px; color: var(--text-gray);">Đang tải quota...</span>
+          </div>
+
+          <p style="font-size: 13px; color: var(--text-gray); line-height: 1.4; margin-bottom: 20px;">
+            Bạn có thể nhờ AI tối ưu hóa thuyết minh quán ăn của mình để hấp dẫn hơn. AI sẽ viết lại mô tả với phong cách
+            hướng dẫn viên sinh động (200-300 từ) dựa trên thông tin gốc mà không bịa thêm dữ liệu.
+          </p>
+
+          <button class="btn ai-btn" id="ai-enhance-btn">
+            <span>🤖</span> Tối ưu mô tả bằng AI Advisor
+          </button>
+
+          <div class="ai-response-area" id="ai-response">
+            Kết quả tối ưu hóa bằng AI của bạn sẽ hiển thị tại đây...
+          </div>
+        </div>
+
+        <div
+          style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+          <button class="btn ai-btn" id="ai-apply-btn"
+            style="background: #10b981; font-size: 12px; padding: 6px 12px; width: auto; display: none;">
+            ✓ Áp dụng mô tả này
+          </button>
+          <span id="ai-status-text" style="font-size: 11px; color: var(--text-gray);"></span>
+        </div>
       </div>
     </div>
   </main>

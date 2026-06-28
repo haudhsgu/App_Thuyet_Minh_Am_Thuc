@@ -20,6 +20,7 @@ namespace Backend.Data
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
         public DbSet<StallVisit> StallVisits => Set<StallVisit>();
         public DbSet<StallMenuImage> StallMenuImages => Set<StallMenuImage>();
+        public DbSet<PendingUserProfileChange> PendingUserProfileChanges => Set<PendingUserProfileChange>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

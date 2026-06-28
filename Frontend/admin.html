@@ -19,6 +19,7 @@
       background-image: radial-gradient(circle at 10% 20%, rgba(255, 122, 0, 0.05) 0%, transparent 40%),
         radial-gradient(circle at 90% 80%, rgba(81, 43, 212, 0.05) 0%, transparent 40%);
     }
+
     .header-panel {
       position: sticky;
       top: 0;
@@ -71,6 +72,7 @@
     .metric-card.online::before {
       background: #10b981;
     }
+
     .metric-info h4 {
       font-size: 13px;
       color: var(--text-gray);
@@ -112,9 +114,11 @@
       transition: all 0.2s ease;
       white-space: nowrap;
     }
+
     .tab-btn:hover {
       color: var(--text-white);
     }
+
     .tab-btn.active {
       color: var(--primary-color);
       border-bottom-color: var(--primary-color);
@@ -124,6 +128,7 @@
       display: none;
       animation: fadeIn 0.3s ease-out;
     }
+
     .tab-content.active {
       display: block;
     }
@@ -146,11 +151,13 @@
       gap: 20px;
       align-items: start;
     }
+
     @media (max-width: 1024px) {
       .visit-dashboard-grid {
         grid-template-columns: 1fr;
       }
     }
+
     .visit-panel {
       background: var(--panel-bg);
       border: 1px solid var(--border-color);
@@ -158,6 +165,7 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
       overflow: hidden;
     }
+
     .visit-panel-header {
       display: flex;
       align-items: flex-end;
@@ -166,16 +174,19 @@
       padding: 16px 16px 12px;
       border-bottom: 1px solid var(--border-color);
     }
+
     .visit-panel-title {
       font-size: 14px;
       font-weight: 700;
       color: var(--text-white);
       margin-bottom: 4px;
     }
+
     .visit-panel-subtitle {
       font-size: 12px;
       color: var(--text-gray);
     }
+
     .visit-filter-bar {
       display: flex;
       flex-wrap: wrap;
@@ -183,6 +194,7 @@
       align-items: end;
       padding: 0 16px 16px;
     }
+
     .visit-filter-item {
       display: flex;
       flex-direction: column;
@@ -190,6 +202,7 @@
       font-size: 11px;
       color: var(--text-gray);
     }
+
     .visit-filter-item input {
       min-width: 140px;
       background: rgba(255, 255, 255, 0.04);
@@ -199,45 +212,55 @@
       padding: 8px 10px;
       font-family: inherit;
     }
+
     .visit-filter-actions {
       display: flex;
       gap: 10px;
       align-items: end;
     }
+
     .visit-ranking-scroll {
       max-height: 430px;
       overflow-y: auto;
     }
+
     .visit-ranking-table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
     }
+
     .visit-ranking-table thead th {
       position: sticky;
       top: 0;
       z-index: 2;
       background: rgba(0, 0, 0, 0.65);
     }
+
     .visit-ranking-row {
       cursor: pointer;
       transition: background 0.2s ease;
     }
+
     .visit-ranking-row:hover td {
       background: rgba(255, 122, 0, 0.08);
     }
+
     .visit-ranking-row.active td {
       background: rgba(255, 122, 0, 0.14);
     }
+
     .visit-chart-area {
       padding: 16px;
     }
+
     .visit-chart-card {
       border: 1px solid var(--border-color);
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.02);
       padding: 16px;
     }
+
     .visit-chart-topline {
       display: flex;
       align-items: center;
@@ -246,6 +269,7 @@
       margin-bottom: 14px;
       flex-wrap: wrap;
     }
+
     .visit-chart-box {
       height: 360px;
       position: relative;
@@ -390,16 +414,20 @@
       height: 360px;
       position: relative;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 13px;
     }
-    th, td {
+
+    th,
+    td {
       padding: 14px 18px;
       border-bottom: 1px solid var(--border-color);
     }
+
     th {
       background: rgba(0, 0, 0, 0.2);
       color: var(--primary-color);
@@ -408,12 +436,15 @@
       font-size: 11px;
       letter-spacing: 0.5px;
     }
+
     tr:last-child td {
       border-bottom: none;
     }
+
     tr:hover td {
       background: rgba(255, 255, 255, 0.02);
     }
+
     .action-btn {
       padding: 6px 12px;
       font-size: 11px;
@@ -424,19 +455,24 @@
       color: white;
       transition: all 0.2s ease;
     }
+
     .action-btn.approve {
       background: #10b981;
     }
+
     .action-btn.approve:hover {
       background: #059669;
     }
+
     .action-btn.reject {
       background: #ef4444;
       margin-left: 8px;
     }
+
     .action-btn.reject:hover {
       background: #dc2626;
     }
+
     #live-map {
       height: 400px;
       width: 100%;
@@ -444,6 +480,7 @@
       border: 1px solid var(--border-color);
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     }
+
     /* Modal note container */
     .note-modal {
       display: none;
@@ -481,6 +518,7 @@
         opacity: 1;
       }
     }
+
     .pulsing-dot {
       width: 8px;
       height: 8px;
@@ -524,7 +562,8 @@
     <div class="config-section" style="display: flex; align-items: center; gap: 10px;">
       <button class="btn" id="generate-all-btn" style="background: var(--primary-color); font-size: 12px; padding: 6px 14px; font-weight: 600;">⚙️ Tạo toàn bộ Audio</button>
       <span id="admin-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray);">Admin</span>
-      <button class="btn" id="logout-btn" style="background: #ef4444; font-size: 12px; padding: 6px 14px;">Đăng xuất</button>
+      <button class="btn" id="logout-btn"
+        style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 10px;">Đăng xuất</button>
     </div>
   </header>
 
@@ -572,7 +611,8 @@
     <!-- 1. Live Tracking Map -->
     <div class="tab-content active" id="live-tracking">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
-        <span class="pulsing-dot"></span> <b>Bản đồ thời gian thực:</b> Theo dõi vị trí của những người dùng đang online (phát sóng 5 phút qua) và các quán ăn đã duyệt (ghim cam).
+        <span class="pulsing-dot"></span> <b>Bản đồ thời gian thực:</b> Theo dõi vị trí của những người dùng đang online
+        (phát sóng 5 phút qua) và các quán ăn đã duyệt (ghim cam).
       </div>
       <div id="live-map"></div>
     </div>
@@ -606,12 +646,12 @@
         <table>
           <thead>
             <tr>
-              <th>Tên Quán</th>
-              <th>Địa chỉ</th>
+              <th>Đối tượng / Tên</th>
+              <th>Địa chỉ / Chi tiết</th>
               <th>Vị trí (Lat, Lon)</th>
-              <th>Thuyết minh chi tiết</th>
-              <th>Trạng thái hiện tại</th>
-              <th style="width: 200px;">Hành động</th>
+              <th>Nội dung thay đổi</th>
+              <th>Trạng thái</th>
+              <th style="width: 220px;">Hành động</th>
             </tr>
           </thead>
           <tbody id="submissions-table-body">
@@ -626,7 +666,8 @@
     <!-- 4. Visit Dashboard -->
     <div class="tab-content" id="visits-dashboard">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
-        <b>Bảng xếp hạng ghé thăm hợp lệ:</b> Chỉ đếm các lượt ghi nhận hợp lệ trong bán kính tối đa 80m và không trùng trong 2 giờ.
+        <b>Bảng xếp hạng ghé thăm hợp lệ:</b> Chỉ đếm các lượt ghi nhận hợp lệ trong bán kính tối đa 80m và không trùng
+        trong 2 giờ.
       </div>
       <div class="visit-dashboard-grid">
         <div class="visit-panel">
@@ -647,7 +688,8 @@
               </thead>
               <tbody id="dashboard-container">
                 <tr>
-                  <td colspan="3" style="text-align: center; color: var(--text-gray);">Đang tải thống kê lượt ghé thăm...</td>
+                  <td colspan="3" style="text-align: center; color: var(--text-gray);">Đang tải thống kê lượt ghé
+                    thăm...</td>
                 </tr>
               </tbody>
             </table>
@@ -658,7 +700,8 @@
           <div class="visit-panel-header">
             <div>
               <div class="visit-panel-title" id="visit-chart-title">Chọn một quán để xem biểu đồ</div>
-              <div class="visit-panel-subtitle" id="visit-chart-subtitle">Biểu đồ lượt ghé theo ngày trong khoảng đã lọc</div>
+              <div class="visit-panel-subtitle" id="visit-chart-subtitle">Biểu đồ lượt ghé theo ngày trong khoảng đã lọc
+              </div>
             </div>
           </div>
           <div class="visit-filter-bar">
@@ -710,10 +753,19 @@
     <!-- 6. Users Management -->
     <div class="tab-content" id="users-management">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
-        <b>Quản lý tài khoản:</b> Xem danh sách tài khoản người dùng và thực hiện xóa tài khoản nếu cần thiết (lưu ý: tài khoản chủ quán phải được xóa địa điểm trước khi xóa tài khoản).
+        <b>Quản lý tài khoản:</b> Xem danh sách tài khoản người dùng và thực hiện xóa tài khoản nếu cần thiết (lưu ý:
+        tài khoản chủ quán phải được xóa địa điểm trước khi xóa tài khoản).
       </div>
-      <div style="margin-bottom: 15px;">
-        <input type="text" id="users-search-input" placeholder="Tìm tài khoản (username, họ tên, email, sđt)..." style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+        <input type="text" id="users-search-input" placeholder="Tìm tài khoản (username, họ tên, email, sđt)..."
+          style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+        <select id="users-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngưng hoạt động</option>
+        </select>
       </div>
       <div class="admin-table-wrapper">
         <table>
@@ -724,7 +776,6 @@
               <th>Vai trò</th>
               <th>Số điện thoại</th>
               <th>Email</th>
-              <th>Thanh toán</th>
               <th>Trạng thái</th>
               <th>Hoạt động cuối</th>
               <th style="width: 160px;">Hành động</th>
@@ -732,7 +783,7 @@
           </thead>
           <tbody id="users-table-body">
             <tr>
-              <td colspan="9" style="text-align: center; color: var(--text-gray);">Đang tải danh sách tài khoản...</td>
+              <td colspan="8" style="text-align: center; color: var(--text-gray);">Đang tải danh sách tài khoản...</td>
             </tr>
           </tbody>
         </table>
@@ -742,10 +793,19 @@
     <!-- 7. Stalls Management -->
     <div class="tab-content" id="stalls-management">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
-        <b>Quản lý địa điểm quán ăn:</b> Xem danh sách các quán ăn trong hệ thống và thực hiện xóa quán ăn nếu cần thiết.
+        <b>Quản lý địa điểm quán ăn:</b> Xem danh sách các quán ăn trong hệ thống và thực hiện xóa quán ăn nếu cần
+        thiết.
       </div>
-      <div style="margin-bottom: 15px;">
-        <input type="text" id="stalls-search-input" placeholder="Tìm quán ăn (tên quán, địa chỉ, chủ quán)..." style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;" onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+      <div style="margin-bottom: 15px; display: flex; gap: 10px; align-items: center;">
+        <input type="text" id="stalls-search-input" placeholder="Tìm quán ăn (tên quán, địa chỉ, chủ quán)..."
+          style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+        <select id="stalls-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+          onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="inactive">Ngưng hoạt động</option>
+        </select>
       </div>
       <div class="admin-table-wrapper">
         <table>
@@ -774,16 +834,41 @@
   <!-- Reject Note Modal Dialog -->
   <div class="note-modal" id="note-modal">
     <div class="modal-content">
-      <h3 style="color: var(--primary-color); margin-bottom: 12px; font-size: 15px;">Nhập ghi chú phản hồi (admin_note)</h3>
-      <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 15px;">Vui lòng nhập lý do từ chối để gửi lại cho chủ quán.</p>
+      <h3 style="color: var(--primary-color); margin-bottom: 12px; font-size: 15px;">Nhập ghi chú phản hồi (admin_note)
+      </h3>
+      <p style="font-size: 12px; color: var(--text-gray); margin-bottom: 15px;">Vui lòng nhập lý do từ chối để gửi lại
+        cho chủ quán.</p>
 
       <div class="form-group">
-        <textarea id="modal-note-text" class="form-control" style="height: 100px; resize: none;" placeholder="Lý do từ chối..."></textarea>
+        <textarea id="modal-note-text" class="form-control" style="height: 100px; resize: none;"
+          placeholder="Lý do từ chối..."></textarea>
       </div>
 
       <div style="display: flex; justify-content: flex-end; gap: 10px;">
-        <button class="btn" id="modal-cancel-btn" style="background: #3e3e50; font-size: 12px; padding: 8px 16px;">Hủy</button>
-        <button class="btn" id="modal-confirm-btn" style="background: #ef4444; font-size: 12px; padding: 8px 16px;">Xác nhận Từ chối</button>
+        <button class="btn" id="modal-cancel-btn"
+          style="background: #3e3e50; font-size: 12px; padding: 8px 16px;">Hủy</button>
+        <button class="btn" id="modal-confirm-btn" style="background: #ef4444; font-size: 12px; padding: 8px 16px;">Xác
+          nhận Từ chối</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detail Modal Dialog -->
+  <div class="note-modal" id="detail-modal" style="display: none;">
+    <div class="modal-content"
+      style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left; padding: 25px;">
+      <h3 id="detail-modal-title"
+        style="color: var(--primary-color); margin-bottom: 18px; font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        Thông tin chi tiết</h3>
+
+      <div id="detail-modal-body"
+        style="font-size: 13px; color: var(--text-white); line-height: 1.6; margin-bottom: 20px;">
+        <!-- Loaded Dynamically -->
+      </div>
+
+      <div style="display: flex; justify-content: flex-end;">
+        <button class="btn" id="detail-modal-close-btn"
+          style="background: #3e3e50; font-size: 12px; padding: 8px 18px;">Đóng</button>
       </div>
     </div>
   </div>
@@ -805,5 +890,5 @@
 
   <script src="admin.js"></script>
 </body>
-</html>
 
+</html>

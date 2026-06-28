@@ -60,15 +60,46 @@
         style="background: #10B981; font-size: 12px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.2s;">🚶
         Mô phỏng đi bộ</button>
 
-      <div class="input-group">
+      <div class="input-group" style="border: none; background: transparent; padding: 0;">
         <input type="text" id="server-url" value="" style="display: none;">
-        <select id="lang-picker">
+        <select id="lang-picker" style="display: none;">
           <option value="en">English</option>
           <option value="vi" selected>Tiếng Việt</option>
           <option value="ja">日本語</option>
           <option value="ko">한국어</option>
           <option value="zh">中文</option>
         </select>
+
+        <!-- Custom Language Picker with flags -->
+        <div class="custom-lang-picker" id="custom-lang-picker">
+          <button class="lang-btn" id="lang-btn-current" type="button">
+            <img src="https://flagcdn.com/w40/vn.png" alt="vi" class="flag-icon" id="current-lang-flag">
+            <span class="lang-text" id="current-lang-text">Tiếng Việt</span>
+            <span class="arrow" style="font-size: 8px; margin-left: 4px;">▼</span>
+          </button>
+          <div class="lang-dropdown" id="lang-dropdown-menu">
+            <div class="lang-item" data-value="vi">
+              <img src="https://flagcdn.com/w40/vn.png" alt="vi" class="flag-icon">
+              <span>Tiếng Việt</span>
+            </div>
+            <div class="lang-item" data-value="en">
+              <img src="https://flagcdn.com/w40/gb.png" alt="en" class="flag-icon">
+              <span>English</span>
+            </div>
+            <div class="lang-item" data-value="ja">
+              <img src="https://flagcdn.com/w40/jp.png" alt="ja" class="flag-icon">
+              <span>日本語</span>
+            </div>
+            <div class="lang-item" data-value="ko">
+              <img src="https://flagcdn.com/w40/kr.png" alt="ko" class="flag-icon">
+              <span>한국어</span>
+            </div>
+            <div class="lang-item" data-value="zh">
+              <img src="https://flagcdn.com/w40/cn.png" alt="zh" class="flag-icon">
+              <span>中文</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <button class="btn" id="sync-btn">Đồng Bộ</button>
@@ -205,6 +236,9 @@
   <div class="mobile-fabs-container" id="mobile-fabs-container">
     <button class="btn fab-btn" id="mobile-gps-btn">🌍</button>
     <button class="btn fab-btn" id="mobile-sync-btn">🔄</button>
+    <button class="btn fab-btn" id="mobile-lang-btn" style="padding: 0; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); width: 44px; height: 44px;" aria-label="Language Selector">
+      <img id="mobile-lang-flag" src="https://flagcdn.com/w40/vn.png" style="width: 100%; height: 100%; object-fit: cover;" alt="lang">
+    </button>
   </div>
 
   <!-- Menu Modal -->

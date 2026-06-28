@@ -13,7 +13,7 @@ namespace Backend.Services
 {
     public interface IAudioGenerationPipeline
     {
-        Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode);
+        Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode, bool force = false);
     }
 
     public class AudioGenerationPipeline : IAudioGenerationPipeline
@@ -39,7 +39,7 @@ namespace Backend.Services
             _logger = logger;
         }
 
-        public async Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode)
+        public async Task<Localization> ProcessStallLocalizationAsync(Guid foodStallId, string targetLanguageCode, bool force = false)
         {
             targetLanguageCode = targetLanguageCode.Trim().ToLower();
             
@@ -49,7 +49,7 @@ namespace Backend.Services
                 throw new ArgumentException($"FoodStall with ID {foodStallId} not found.");
             }
 
-            _logger.LogInformation("Processing audio generation pipeline for stall '{Name}' in language '{Lang}'", stall.Name, targetLanguageCode);
+            _logger.LogInformation("Processing audio generation pipeline for stall '{Name}' in language '{Lang}' (force: {Force})", stall.Name, targetLanguageCode, force);
 
             // Step 1: Compute MD5 Hash of the Source Text (OriginalHistory)
             var sourceHash = ComputeMd5Hash(stall.OriginalHistory);
@@ -59,7 +59,7 @@ namespace Backend.Services
                 .FirstOrDefaultAsync(l => l.FoodStallId == foodStallId && l.LanguageCode == targetLanguageCode);
 
             // Step 2: Compare Hash of Source Text & check if MP3 exists
-            if (existingLoc != null && existingLoc.TextHash == sourceHash && FileExistsOnServer(existingLoc.AudioUrl))
+            if (!force && existingLoc != null && existingLoc.TextHash == sourceHash && FileExistsOnServer(existingLoc.AudioUrl))
             {
                 var needsRegeneration = targetLanguageCode != "vi" &&
                     (string.IsNullOrWhiteSpace(existingLoc.TranslatedText) ||
@@ -119,6 +119,46 @@ namespace Backend.Services
 
             var filePath = Path.Combine(audioDir, fileName);
             await File.WriteAllBytesAsync(filePath, audioBytes);
+
+            // Clean up old audio files for this stall and language to prevent disk bloat
+            try
+            {
+                var searchPattern = $"{foodStallId}_{targetLanguageCode}_*.mp3";
+                if (Directory.Exists(audioDir))
+                {
+                    foreach (var oldFile in Directory.GetFiles(audioDir, searchPattern))
+                    {
+                        if (Path.GetFileName(oldFile) != fileName)
+                        {
+                            try
+                            {
+                                File.Delete(oldFile);
+                            }
+                            catch
+                            {
+                                // Ignore cleanup failure if file is locked
+                            }
+                        }
+                    }
+                    // Clean up legacy non-hash files if present
+                    var legacyFile = Path.Combine(audioDir, $"{foodStallId}_{targetLanguageCode}.mp3");
+                    if (File.Exists(legacyFile))
+                    {
+                        try
+                        {
+                            File.Delete(legacyFile);
+                        }
+                        catch
+                        {
+                            // Ignore
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to clean up old audio files for stall '{StallId}'", foodStallId);
+            }
 
             // Create server URL (e.g. /audio/stallid_language_hash.mp3)
             var audioUrl = $"/audio/{fileName}";
@@ -198,9 +238,6 @@ namespace Backend.Services
             var normalizedTranslated = NormalizeForComparison(translatedText);
 
             if (string.Equals(normalizedOriginal, normalizedTranslated, StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (normalizedTranslated.Contains(normalizedOriginal, StringComparison.OrdinalIgnoreCase))
                 return true;
 
             return false;

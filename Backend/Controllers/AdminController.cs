@@ -36,10 +36,10 @@ namespace Backend.Controllers
 
             var totalStalls = await _dbContext.FoodStalls.CountAsync();
             var totalUsers = await _dbContext.Users.CountAsync(u => u.Role == "Public");
-            
+
             // Active users are users whose LastActive is within the last 1 minutes
             var activeThreshold = DateTime.UtcNow.AddMinutes(-1);
-            var activeUsersCount = await _dbContext.Users.CountAsync(u => u.LastActive >= activeThreshold);
+            var activeUsersCount = await _dbContext.Users.CountAsync(u => u.Role == "Public" && u.LastActive >= activeThreshold);
 
             return Ok(new
             {
@@ -76,6 +76,54 @@ namespace Backend.Controllers
             return Ok(result);
         }
 
+        // 2a. GET Owner Registration Details (includes registration profile and stall details)
+        [HttpGet("registrations/{id}/detail")]
+        public async Task<IActionResult> GetRegistrationDetails(Guid id)
+        {
+            var admin = await GetAdminUserAsync();
+            if (admin == null) return Unauthorized("Admin privileges required.");
+
+            var reg = await _dbContext.OwnerRegistrations.Include(r => r.User).FirstOrDefaultAsync(r => r.Id == id);
+            if (reg == null) return NotFound("Registration not found.");
+
+            // Find associated stall
+            var stall = await _dbContext.FoodStalls
+                .FirstOrDefaultAsync(s => s.OwnerId == reg.UserId);
+
+            object menuImages = new List<object>();
+            if (stall != null)
+            {
+                menuImages = await _dbContext.StallMenuImages
+                    .Where(m => m.FoodStallId == stall.Id)
+                    .Select(m => new { m.Id, m.ImageUrl, m.IsMainImage })
+                    .ToListAsync();
+            }
+
+            return Ok(new
+            {
+                reg.Id,
+                reg.UserId,
+                Username = reg.User?.Username,
+                FullName = reg.FullName,
+                Cccd = EncryptionHelper.DecryptCccd(reg.CccdEncrypted),
+                PhoneNumber = reg.PhoneNumber,
+                Email = reg.Email,
+                Status = reg.Status,
+                CreatedAt = reg.CreatedAt,
+                AdminNote = reg.AdminNote,
+                Stall = stall == null ? null : new
+                {
+                    stall.Id,
+                    stall.Name,
+                    stall.Address,
+                    stall.Latitude,
+                    stall.Longitude,
+                    stall.OriginalHistory,
+                    MenuImages = menuImages
+                }
+            });
+        }
+
         // 3. POST Approve Registration
         [HttpPost("registrations/{id}/approve")]
         public async Task<IActionResult> ApproveRegistration(Guid id, [FromBody] string adminNote)
@@ -101,15 +149,15 @@ namespace Backend.Controllers
                 reg.User.CccdEncrypted = reg.CccdEncrypted;
 
                 _dbContext.Entry(reg.User).State = EntityState.Modified;
- 
-                 // Send a notification to the owner
-                 _dbContext.Notifications.Add(new Notification
-                 {
-                     Id = Guid.NewGuid(),
-                     UserId = reg.UserId,
-                     Message = "Tài khoản chủ quán của bạn đã được Admin phê duyệt! Bạn hiện có thể đăng nhập để quản lý.",
-                     CreatedAt = DateTime.UtcNow
-                 });
+
+                // Send a notification to the owner
+                _dbContext.Notifications.Add(new Notification
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = reg.UserId,
+                    Message = "Tài khoản chủ quán của bạn đã được Admin phê duyệt! Bạn hiện có thể đăng nhập để quản lý.",
+                    CreatedAt = DateTime.UtcNow
+                });
             }
 
             // Also approve their registered stall automatically so it goes live initially
@@ -171,10 +219,11 @@ namespace Backend.Controllers
             var admin = await GetAdminUserAsync();
             if (admin == null) return Unauthorized("Admin privileges required.");
 
-            // 1. Pending Stalls
+            // 1. Pending Stalls (only show if owner is already verified)
             var pendingStalls = await _dbContext.FoodStalls
-                .Where(s => !s.IsVerified && s.OwnerId != null)
-                .Select(s => new {
+                .Where(s => !s.IsVerified && s.OwnerId != null && _dbContext.Users.Any(u => u.Id == s.OwnerId && u.IsVerified))
+                .Select(s => new
+                {
                     Type = "Stall",
                     Id = s.Id,
                     Name = s.Name,
@@ -189,7 +238,8 @@ namespace Backend.Controllers
 
             // 2. Pending Owner Profiles
             var pendingProfiles = await _dbContext.PendingUserProfileChanges
-                .Select(u => new {
+                .Select(u => new
+                {
                     Type = "Profile",
                     Id = u.UserId,
                     Name = _dbContext.Users.Where(usr => usr.Id == u.UserId).Select(usr => usr.Username).FirstOrDefault() ?? "Chủ quán",
@@ -401,10 +451,10 @@ namespace Backend.Controllers
             if (admin == null) return Unauthorized("Admin privileges required.");
 
             var threshold = DateTime.UtcNow.AddMinutes(-1);
-            
+
             // Get users who were active in last 1 minutes along with their last telemetry item
             var users = await _dbContext.Users
-                .Where(u => u.LastActive >= threshold && u.Role != "Admin")
+                .Where(u => u.LastActive >= threshold && u.Role != "Admin" && u.Role != "Owner")
                 .ToListAsync();
 
             var result = new System.Collections.Generic.List<object>();
@@ -652,15 +702,12 @@ namespace Backend.Controllers
             user.IsActive = !user.IsActive;
             _dbContext.Entry(user).State = EntityState.Modified;
 
-            // If deactivating user, also deactivate all owned stalls
-            if (!user.IsActive)
+            // Cascade active status to all owned stalls
+            var stalls = await _dbContext.FoodStalls.Where(s => s.OwnerId == id).ToListAsync();
+            foreach (var stall in stalls)
             {
-                var stalls = await _dbContext.FoodStalls.Where(s => s.OwnerId == id).ToListAsync();
-                foreach (var stall in stalls)
-                {
-                    stall.IsActive = false;
-                    _dbContext.Entry(stall).State = EntityState.Modified;
-                }
+                stall.IsActive = user.IsActive;
+                _dbContext.Entry(stall).State = EntityState.Modified;
             }
 
             await _dbContext.SaveChangesAsync();
@@ -754,6 +801,16 @@ namespace Backend.Controllers
 
             var stall = await _dbContext.FoodStalls.FindAsync(id);
             if (stall == null) return NotFound("Stall not found.");
+
+            // Check owner active status before activating
+            if (!stall.IsActive && stall.OwnerId != null)
+            {
+                var owner = await _dbContext.Users.FindAsync(stall.OwnerId.Value);
+                if (owner != null && !owner.IsActive)
+                {
+                    return BadRequest("Tài khoản chủ quán đang ngưng hoạt động, không thể kích hoạt cửa hàng này.");
+                }
+            }
 
             stall.IsActive = !stall.IsActive;
             _dbContext.Entry(stall).State = EntityState.Modified;

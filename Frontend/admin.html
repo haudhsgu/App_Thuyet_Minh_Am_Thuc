@@ -560,7 +560,9 @@
     </div>
 
     <div class="config-section" style="display: flex; align-items: center; gap: 10px;">
-      <button class="btn" id="generate-all-btn" style="background: var(--primary-color); font-size: 12px; padding: 6px 14px; font-weight: 600;">⚙️ Tạo toàn bộ Audio</button>
+      <button class="btn" id="generate-all-btn"
+        style="background: var(--primary-color); font-size: 12px; padding: 6px 14px; font-weight: 600;">⚙️ Tạo toàn bộ
+        Audio</button>
       <span id="admin-name" style="font-size: 13px; font-weight: 600; color: var(--text-gray);">Admin</span>
       <button class="btn" id="logout-btn"
         style="background: #ef4444; font-size: 12px; padding: 6px 14px; margin-left: 10px;">Đăng xuất</button>
@@ -600,7 +602,7 @@
     <div class="admin-tabs">
       <button class="tab-btn active" data-tab="live-tracking">📍 Giám Sát Người Dùng</button>
       <button class="tab-btn" data-tab="registrations">📝 Duyệt Đăng Ký Chủ Quán</button>
-      <button class="tab-btn" data-tab="submissions">✍ Duyệt Thuyết Minh</button>
+      <button class="tab-btn" data-tab="submissions">✍ Duyệt Thay Đổi Thông Tin</button>
       <button class="tab-btn" data-tab="visits-dashboard">📊 Lượt Ghé Thăm</button>
       <button class="tab-btn" data-tab="users-management">👥 Quản Lý Tài Khoản</button>
       <button class="tab-btn" data-tab="stalls-management">🏪 Quản Lý Quán Ăn</button>
@@ -612,7 +614,7 @@
     <div class="tab-content active" id="live-tracking">
       <div style="margin-bottom: 15px; font-size: 13px; color: var(--text-gray);">
         <span class="pulsing-dot"></span> <b>Bản đồ thời gian thực:</b> Theo dõi vị trí của những người dùng đang online
-        (phát sóng 5 phút qua) và các quán ăn đã duyệt (ghim cam).
+        (phát sóng 1 phút qua) và các quán ăn đã duyệt (ghim cam).
       </div>
       <div id="live-map"></div>
     </div>
@@ -760,7 +762,8 @@
         <input type="text" id="users-search-input" placeholder="Tìm tài khoản (username, họ tên, email, sđt)..."
           style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
-        <select id="users-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+        <select id="users-active-filter"
+          style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
           <option value="all">Tất cả trạng thái</option>
           <option value="active">Đang hoạt động</option>
@@ -800,7 +803,8 @@
         <input type="text" id="stalls-search-input" placeholder="Tìm quán ăn (tên quán, địa chỉ, chủ quán)..."
           style="width: 100%; max-width: 360px; padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.05); color: #fff; font-family: inherit; font-size: 13px; outline: none; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
-        <select id="stalls-active-filter" style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
+        <select id="stalls-active-filter"
+          style="padding: 10px 14px; border: 1px solid var(--border-color); border-radius: 8px; background: #1e1e2e; color: #fff; font-family: inherit; font-size: 13px; outline: none; cursor: pointer; transition: border 0.2s;"
           onfocus="this.style.borderColor='var(--primary-color)'" onblur="this.style.borderColor='var(--border-color)'">
           <option value="all">Tất cả trạng thái</option>
           <option value="active">Đang hoạt động</option>
@@ -875,15 +879,20 @@
 
   <!-- Detail Modal Dialog -->
   <div class="note-modal" id="detail-modal" style="display: none;">
-    <div class="modal-content" style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left; padding: 25px;">
-      <h3 id="detail-modal-title" style="color: var(--primary-color); margin-bottom: 18px; font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Thông tin chi tiết</h3>
-      
-      <div id="detail-modal-body" style="font-size: 13px; color: var(--text-white); line-height: 1.6; margin-bottom: 20px;">
+    <div class="modal-content"
+      style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left; padding: 25px;">
+      <h3 id="detail-modal-title"
+        style="color: var(--primary-color); margin-bottom: 18px; font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        Thông tin chi tiết</h3>
+
+      <div id="detail-modal-body"
+        style="font-size: 13px; color: var(--text-white); line-height: 1.6; margin-bottom: 20px;">
         <!-- Loaded Dynamically -->
       </div>
 
       <div style="display: flex; justify-content: flex-end;">
-        <button class="btn" id="detail-modal-close-btn" style="background: #3e3e50; font-size: 12px; padding: 8px 18px;">Đóng</button>
+        <button class="btn" id="detail-modal-close-btn"
+          style="background: #3e3e50; font-size: 12px; padding: 8px 18px;">Đóng</button>
       </div>
     </div>
   </div>

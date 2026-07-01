@@ -1,0 +1,1087 @@
+ĐẶC TẢ CHI TIẾT USE CASE: XEM CHI TIẾT QUÁN ĂN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Xem chi tiết thông tin quán ăn.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Cho phép du khách xem thông tin đầy đủ về một quán ăn đường phố bao gồm tên quán, địa chỉ, khoảng cách, mô tả thuyết minh. Use case này được mở rộng bởi các chức năng phát thuyết minh âm thanh đa ngôn ngữ, xem ảnh thực đơn và chỉ đường.
+- Tiền điều kiện (Preconditions):
+  + Du khách đã mở ứng dụng PWA (trực tuyến hoặc ngoại tuyến).
+  + Bản đồ Leaflet đã hiển thị thành công danh sách các ghim (markers) quán ăn màu cam.
+  + Nếu ở chế độ ngoại tuyến, du khách cần phải thực hiện "Đồng bộ" dữ liệu thành công trước đó (để lưu thông tin và tệp âm thanh vào IndexedDB và bộ nhớ cache).
+- Hậu điều kiện (Postconditions):
+  + Thông tin chi tiết của quán ăn được hiển thị chi tiết trên thẻ thông tin (Stall Card) ở phía dưới màn hình.
+  + Tệp âm thanh thuyết minh tương ứng được tải vào trình phát (Audio Player) sẵn sàng phát hoặc tự động phát.
+
+---
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách thực hiện một trong ba hành động sau để chọn quán ăn:
+  + Chọn trực tiếp một ghim quán ăn màu cam trên Bản đồ.
+  + Chọn một quán ăn từ danh sách hiển thị ở thanh bên trái (hoặc bấm nút "Nghe" trên dòng quán ăn đó).
+  + (Tự động) Di chuyển thực tế hoặc giả lập GPS bằng cách click bản đồ vào phạm vi bán kính <= 20 mét xung quanh một quán ăn.
+- Bước 2: Hệ thống tự động di chuyển tâm bản đồ (panTo) và zoom cận cảnh (mức zoom 18) vào vị trí quán ăn được chọn, đồng thời mở popup thông tin nhanh trên bản đồ.
+- Bước 3: Hệ thống hiển thị thẻ thông tin chi tiết của quán ăn (Stall Card) ở phía dưới màn hình, bao gồm:
+  + Tên quán ăn (đã được dịch theo ngôn ngữ lựa chọn của giao diện).
+  + Địa chỉ quán ăn (đã dịch).
+  + Khoảng cách thực tế tính bằng mét từ vị trí GPS hiện tại của du khách đến tọa độ quán ăn (sử dụng công thức Haversine).
+  + Đoạn văn bản mô tả thuyết minh lịch sử/món ăn (đã dịch).
+- Bước 4: Hệ thống tự động phân tích đường dẫn tệp âm thanh thuyết minh (audioUrl), kiểm tra trạng thái và nạp tệp MP3 (từ máy chủ hoặc bộ nhớ cache offline của Service Worker) vào trình phát nhạc HTML5 Audio. Trình phát chuyển sang trạng thái "Sẵn sàng" (Ready).
+
+---
+
+3. CÁC LUỒNG MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Luồng mở rộng 1: Phát thuyết minh đa ngôn ngữ (Phát tự động & thủ công)
+* Điều kiện kích hoạt: Thẻ thông tin quán ăn đang hiển thị và tệp audio đã được nạp thành công.
+* Luồng sự kiện phát tự động (khi đi vào vùng Geofencing):
+  - Hệ thống tự động gọi hàm phát nhạc (audioPlayer.play()).
+  - Trạng thái trình phát chuyển sang "Đang phát..." (Playing). Nút điều khiển chuyển sang biểu tượng Tạm dừng (⏸) kèm chữ "Tạm dừng".
+  - Khi tệp tin kết thúc, trình phát tự chuyển về trạng thái "Kết thúc" (Ended) và nút quay lại biểu tượng Phát (▶).
+* Luồng sự kiện phát thủ công (Du khách tự bấm nút):
+  - Du khách click vào nút "Bắt đầu nghe thuyết minh" trên thẻ thông tin.
+  - Nếu trình phát đang tạm dừng: Hệ thống phát tiếp âm thanh, chuyển biểu tượng nút thành Tạm dừng (⏸) và hiển thị trạng thái "Đang phát...".
+  - Nếu trình phát đang phát: Hệ thống tạm dừng âm thanh (audioPlayer.pause()), đổi biểu tượng nút thành Phát (▶) và hiển thị trạng thái "Tạm dừng".
+
+3.2. Luồng mở rộng 2: Xem hình ảnh thực đơn chi tiết
+* Điều kiện kích hoạt: Du khách click vào nút "Mở xem menu chi tiết" trên thẻ thông tin quán ăn.
+* Luồng sự kiện:
+  - Bước 1: Hệ thống kích hoạt hiển thị hộp thoại modal xem thực đơn (#menu-modal).
+  - Bước 2: Hệ thống truy vấn danh sách ảnh thực đơn liên kết với quán ăn từ cơ sở dữ liệu nội bộ (IndexedDB) hoặc gọi API từ máy chủ.
+  - Bước 3: Hệ thống dựng danh sách ảnh hiển thị cuộn ngang/dọc trong modal.
+  - Bước 4: Du khách xem hình ảnh. Sau khi xem xong, du khách click nút đóng (✕) hoặc click ra ngoài vùng modal để đóng hộp thoại lại.
+
+3.3. Luồng mở rộng 3: Chỉ đường đến quán ăn
+* Điều kiện kích hoạt: Du khách click vào nút "Chỉ Đường" trên thẻ thông tin quán ăn.
+* Luồng sự kiện:
+  - Bước 1: Hệ thống lấy tọa độ vĩ độ (Latitude) và kinh độ (Longitude) của quán ăn hiện tại.
+  - Bước 2: Hệ thống khởi tạo đường dẫn điều hướng của Google Maps dưới dạng: https://www.google.com/maps/dir/?api=1&destination={vĩ_độ},{kinh_độ}
+  - Bước 3: Hệ thống tự động mở một tab trình duyệt mới để hiển thị bản đồ chỉ đường chi tiết từ vị trí GPS hiện tại của du khách đến quán ăn.
+
+---
+
+4. LUỒNG THAY THẾ (ALTERNATIVE FLOWS)
+
+4.1. Ngoại tuyến (Offline Mode) - Tải dữ liệu từ cache cục bộ
+- Tại Bước 3 của Luồng chính: Nếu thiết bị không có kết nối Internet, hệ thống sẽ đọc văn bản dịch từ cơ sở dữ liệu IndexedDB của trình duyệt.
+- Tại Bước 4 của Luồng chính và Luồng mở rộng 3.1: Hệ thống gọi tệp thuyết minh .mp3. Service Worker bắt được sự kiện fetch, kiểm tra thấy tệp .mp3 đã được cache ngoại tuyến từ trước và trả về tệp âm thanh từ Cache Storage của trình duyệt mà không cần kết nối mạng.
+
+4.2. Thay đổi ngôn ngữ giao diện (Language Switch)
+- Tại bất kỳ thời điểm nào khi thẻ thông tin đang hiển thị, du khách thay đổi cờ quốc kỳ/ngôn ngữ (Ví dụ: từ Tiếng Việt sang English):
+- Hệ thống thực hiện:
+  + Tạm dừng trình phát âm thanh hiện tại.
+  + Đọc ngôn ngữ mục tiêu mới (vi/en/ja/ko/zh).
+  + Cập nhật lại văn bản hiển thị trên Stall Card (Tên dịch, Địa chỉ dịch, Mô tả dịch tương ứng).
+  + Nạp tệp âm thanh thuyết minh mới của ngôn ngữ đó (ví dụ tệp chứa hậu tố _en_{hash}.mp3).
+  + Trình phát nhạc quay lại trạng thái "Sẵn sàng" với âm thanh ngôn ngữ mới.
+
+---
+
+5. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+5.1. Không có tệp âm thanh thuyết minh
+- Tại Bước 4 của Luồng chính: Nếu quán ăn chưa được dịch thuật hoặc không tồn tại tệp âm thanh trên máy chủ:
+- Hệ thống hiển thị trạng thái: "Không có thuyết minh âm thanh" hoặc "Không có file âm thanh".
+- Nút bấm phát nhạc bị vô hiệu hóa hoặc chuyển trạng thái hiển thị lỗi.
+
+5.2. Trình duyệt chặn tự động phát (Autoplay Blocked)
+- Tại Luồng mở rộng 3.1 (phát tự động): Trên một số trình duyệt di động (iOS Safari/Chrome), chính sách bảo mật chặn âm thanh tự phát khi không có tương tác click trước đó của người dùng:
+- Hàm phát tự động bị lỗi (Promise reject).
+- Hệ thống bắt lỗi ngoại lệ, chuyển trạng thái trình phát về: "Bấm Phát Thuyết Minh để nghe" để hướng dẫn du khách click thủ công nhằm cấp quyền âm thanh cho trình duyệt.
+
+5.3. Chưa đồng bộ dữ liệu khi ở chế độ ngoại tuyến
+- Khi ở chế độ ngoại tuyến nhưng du khách chưa từng bấm "Đồng bộ" trước đó:
+- Bản đồ sẽ trống trơn và không thể xem chi tiết bất kỳ quán ăn nào. Hệ thống hiển thị dòng cảnh báo: "Không có quán nào trong dữ liệu. Vui lòng kết nối mạng và bấm Đồng bộ để tải dữ liệu."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: ĐỒNG BỘ DỮ LIỆU
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Đồng bộ dữ liệu.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Cho phép du khách kết nối với máy chủ Backend để tải toàn bộ thông tin quán ăn cùng tệp âm thanh thuyết minh đa ngôn ngữ về lưu trữ ngoại tuyến trong trình duyệt (sử dụng IndexedDB và Service Worker Cache).
+- Tiền điều kiện (Preconditions):
+  + Thiết bị của du khách đang kết nối Internet.
+  + Du khách đã đăng nhập tài khoản có quyền truy cập trả phí (Premium) hoặc thiết bị đã được kích hoạt dịch vụ mở khóa.
+- Hậu điều kiện (Postconditions):
+  + Cơ sở dữ liệu IndexedDB của trình duyệt chứa thông tin cập nhật mới nhất về các quán ăn và bản dịch tương ứng.
+  + Các tệp âm thanh MP3 thuyết minh được tải và lưu trong Cache Storage của Service Worker, sẵn sàng phát offline.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách click vào nút "Đồng Bộ" trên thanh công cụ của ứng dụng PWA.
+- Bước 2: Hệ thống kiểm tra quyền truy cập của du khách thông qua hàm `hasUnlockedAccess()`. Xác định người dùng có vai trò là "Admin", "Owner" hoặc có giá trị "hasPaidAccess" trong bộ nhớ cục bộ.
+- Bước 3: Hệ thống gửi yêu cầu `GET` đến endpoint `/api/foodstalls/sync?lang={langCode}` (trong đó `langCode` là mã ngôn ngữ hiện tại của giao diện PWA).
+- Bước 4: Máy chủ Backend truy vấn danh sách quán ăn từ cơ sở dữ liệu. Với mỗi quán ăn, máy chủ sẽ đọc bản dịch tiếng Việt gốc hoặc bản dịch tương ứng đã được lưu trữ của ngôn ngữ được chọn, kèm theo URL tệp âm thanh MP3 tương ứng (có đính kèm query parameter `?v={TextHash}` để tránh cache).
+- Bước 5: Frontend nhận phản hồi dạng JSON. Hệ thống gọi phương thức `db.clearAll()` để xóa dữ liệu cũ, sau đó gọi `db.saveStalls(stalls)` để lưu toàn bộ dữ liệu mới tải vào IndexedDB nội bộ.
+- Bước 6: Hệ thống vẽ lại các ghim quán ăn trên bản đồ bằng cách gọi hàm `loadStallPins()` để đảm bảo dữ liệu hiển thị là mới nhất.
+- Bước 7: Hệ thống kích hoạt hàm `prefetchAudioFiles(stalls, serverUrl)` chạy ngầm để tải tuần tự tất cả các tệp âm thanh thuyết minh của các quán ăn này từ máy chủ và lưu vào bộ nhớ cache ngoại tuyến của Service Worker.
+
+3. LUỒNG THAY THẾ (ALTERNATIVE FLOWS)
+- Khôi phục dịch thuật ngầm trên Server (Self-Healing): Nếu hệ thống phát hiện có quán ăn mới hoặc mô tả trong DB đã thay đổi trực tiếp (mã hash không khớp với bản dịch), trường `pendingTranslations` trả về lớn hơn 0.
+  + Hệ thống hiển thị trạng thái đồng bộ từng phần: "Đã tải X quán. Đang dịch thêm Y quán ở nền — hệ thống sẽ tự cập nhật..."
+  + Hệ thống tự động đặt lịch hẹn giờ gọi lại hàm đồng bộ sau 12 giây (`scheduleSyncRetry`). Luồng hẹn giờ này sẽ tự động lặp lại cho đến khi máy chủ hoàn tất dịch ngầm toàn bộ và sinh xong tệp âm thanh.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Không có quyền truy cập (Access Denied)
+- Tại Bước 2 của Luồng chính: Nếu du khách chưa đăng nhập hoặc chưa mua gói mở khóa:
+- Hệ thống dừng quá trình đồng bộ, chuyển chữ thông báo màu đỏ: "Vui lòng đăng nhập và mở khóa quyền truy cập trước khi đồng bộ." và không gửi yêu cầu về máy chủ.
+
+4.2. Không kết nối được máy chủ (Connection Timeout)
+- Tại Bước 3 của Luồng chính: Nếu mất kết nối mạng hoặc sai địa chỉ IP máy chủ Backend:
+- Yêu cầu fetch bị thất bại. Hệ thống hiển thị dòng chữ đỏ thông báo lỗi: "Đồng bộ thất bại. Vui lòng kiểm tra kết nối hoặc URL. (Lỗi mạng hoặc Server ngắt kết nối)".
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: TRA CỨU CHAT VỚI TRỢ LÝ AI
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Tra cứu chat với Trợ lý AI.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Cho phép du khách trò chuyện, hỏi đáp thông tin về các quán ăn, xin gợi ý món ăn hoặc yêu cầu lên lịch trình du lịch bằng ngôn ngữ tự nhiên thông qua AI Tour Guide tích hợp dữ liệu phố ẩm thực Quận 4.
+- Tiền điều kiện (Preconditions):
+  + Du khách đang kết nối trực tuyến với máy chủ Backend (AI không hoạt động ở chế độ offline hoàn toàn).
+- Hậu điều kiện (Postconditions):
+  + Câu trả lời gợi ý hoặc thông tin hướng dẫn của AI được hiển thị dưới dạng bong bóng chat trong khung hội thoại.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách nhập câu hỏi vào ô nhập liệu `#chat-input` (Ví dụ: "Gợi ý cho tôi các quán ốc ngon").
+- Bước 2: Du khách nhấn nút "Gửi" hoặc ấn phím "Enter" trên bàn phím.
+- Bước 3: Hệ thống hiển thị câu hỏi của du khách dưới dạng một bong bóng chat căn phải màu xanh/cam trong khung hội thoại, đồng thời xóa nội dung trong ô nhập liệu và hiển thị bong bóng chat "Đang suy nghĩ..." (Thinking...) từ AI.
+- Bước 4: Hệ thống gửi yêu cầu `POST` tới endpoint `/api/ai/chat` chứa: câu hỏi của du khách, tọa độ GPS hiện tại (vĩ độ, kinh độ nếu có), mã ngôn ngữ giao diện hiện tại.
+- Bước 5: Máy chủ Backend tiếp nhận câu hỏi, sử dụng kỹ thuật RAG để tìm kiếm các quán ăn phù hợp trong cơ sở dữ liệu, nhúng thông tin ngữ cảnh vào Prompt và gửi tới Gemini API để sinh câu trả lời bằng ngôn ngữ tương ứng.
+- Bước 6: Frontend nhận phản hồi từ API, ẩn bong bóng "Đang suy nghĩ..." và hiển thị câu trả lời dạng văn bản từ AI căn bên trái khung chat. Khung hội thoại tự động cuộn xuống dưới cùng để hiển thị tin nhắn mới nhất.
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Chuyển đổi ngôn ngữ chat (Language Switch)
+- Nếu du khách thay đổi ngôn ngữ trên picker cờ quốc kỳ của PWA:
+- Trợ lý AI nhận diện mã ngôn ngữ mới (ví dụ: `en`, `ja`, `ko`, `zh`).
+- Tin nhắn chào mừng mặc định của AI được đổi ngôn ngữ hiển thị tương ứng.
+- Các câu hỏi tiếp theo của du khách (kể cả khi viết bằng tiếng Việt) sẽ được máy chủ tự động dịch và hướng dẫn AI phản hồi hoàn toàn bằng ngôn ngữ mới được chọn.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Không kết nối được máy chủ AI (Connection Error)
+- Tại Bước 4 của Luồng chính: Nếu máy chủ Backend không hoạt động hoặc không có mạng:
+- Hệ thống hiển thị bong bóng chat báo lỗi: "Không thể kết nối đến máy chủ AI. Vui lòng kiểm tra lại mạng." hoặc hiển thị mã lỗi kết nối cụ thể.
+
+4.2. Gemini API bị lỗi hoặc quá tải (Rate Limit / API Error)
+- Nếu Gemini API trả về lỗi hoặc không phản hồi sau 30 giây:
+- Hệ thống ẩn trạng thái suy nghĩ và hiển thị tin nhắn lỗi: "Không nhận được câu trả lời từ AI. Vui lòng thử lại sau."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: TÌM KIẾM VÀ LỌC QUÁN ĂN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Tìm kiếm và lọc quán ăn.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Cho phép du khách nhanh chóng tìm kiếm và lọc danh sách các quán ăn theo tên hoặc theo loại món ăn đang muốn tìm kiếm ngay trên thiết bị di động.
+- Tiền điều kiện (Preconditions):
+  + Du khách đã tải danh sách quán ăn về bộ nhớ máy (online hoặc đã đồng bộ offline).
+- Hậu điều kiện (Postconditions):
+  + Danh sách quán ăn ở thanh bên và các ghim trên bản đồ được cập nhật hiển thị chỉ bao gồm các quán thỏa mãn điều kiện tìm kiếm.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách nhập từ khóa cần tìm vào ô nhập liệu `#stall-search-input` (Ví dụ: "Ốc", "Phá lấu", "Cô Thảo").
+- Bước 2: Du khách chọn loại tìm kiếm trong hộp chọn `#stall-search-type` (bao gồm: "Tìm theo tên quán" hoặc "Tìm theo loại món").
+- Bước 3: Hệ thống tự động lắng nghe sự kiện nhập liệu (`input`) của du khách, tiến hành chuẩn hóa văn bản (loại bỏ dấu tiếng Việt, viết thường) qua hàm `normalizeSearchText` để so sánh không phân biệt dấu và chữ hoa chữ thường.
+- Bước 4: Hệ thống thực hiện bộ lọc trực tiếp trên mảng dữ liệu đang lưu trong bộ nhớ `currentStallsCache`:
+  + Nếu chọn tìm theo tên: So sánh từ khóa với tên quán ăn gốc hoặc tên quán ăn đã được dịch.
+  + Nếu chọn tìm theo loại món: So sánh từ khóa với nội dung thuyết minh lịch sử món ăn (tìm các món ăn được mô tả bên trong thuyết minh).
+- Bước 5: Hệ thống hiển thị danh sách quán ăn đã lọc ở cột bên trái màn hình. Nếu không tìm thấy quán nào, hệ thống hiển thị dòng chữ: "Không có quán nào trong dữ liệu."
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Xem vị trí trên bản đồ (Focus Map Point)
+- Từ kết quả tìm kiếm đã hiển thị ở Luồng chính, du khách click vào dòng thông tin của một quán ăn bất kỳ:
+- Hệ thống kích hoạt hàm `focusStallOnMap(id)`.
+- Bản đồ tự động xoay chuyển tâm và phóng to vào ghim quán ăn đó, đồng thời hiển thị popup thông tin nhanh trên bản đồ.
+
+3.2. Phát thuyết minh đa ngôn ngữ từ danh sách tìm kiếm
+- Từ kết quả tìm kiếm đã hiển thị ở Luồng chính, du khách click trực tiếp vào nút "Nghe" (Listen) nằm ở góc phải của dòng thông tin quán ăn:
+- Hệ thống định vị tâm bản đồ vào quán ăn, hiển thị Stall Card ở dưới và tự động gọi trình phát phát thuyết minh âm thanh tiếng gốc hoặc bản dịch ngôn ngữ tương ứng (`playNarrationAudio`).
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Không có dữ liệu trong cache cục bộ
+- Nếu cơ sở dữ liệu IndexedDB rỗng và không có dữ liệu để thực hiện bộ lọc tìm kiếm:
+- Hệ thống hiển thị danh sách trống và thông báo: "Không có quán nào trong dữ liệu. Vui lòng Đồng bộ dữ liệu trước."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: MÔ PHỎNG VỊ TRÍ GPS
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Mô phỏng vị trí GPS.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Cho phép du khách click trực tiếp vào một tọa độ bất kỳ trên bản đồ để giả lập vị trí GPS hiện tại của thiết bị. Tính năng này giúp du khách trải nghiệm thử chức năng phát thuyết minh tự động (Geofencing) ngay trên máy tính bàn hoặc ở những nơi không có tín hiệu định vị thực tế.
+- Tiền điều kiện (Preconditions):
+  + Du khách đã mở ứng dụng PWA.
+  + Đã bật tính năng hiển thị bản đồ Leaflet.
+- Hậu điều kiện (Postconditions):
+  + Ghim định vị vị trí người dùng (màu xanh dương nhấp nháy) di chuyển đến tọa độ được chọn.
+  + Khoảng cách đến các quán ăn được tính toán lại theo vị trí mới.
+  + Thẻ thông tin quán ăn tự động hiển thị và phát âm thanh nếu tọa độ mô phỏng nằm trong bán kính 20 mét tính từ quán.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách click chuột vào một vị trí bất kỳ trên bản đồ Leaflet.
+- Bước 2: Hệ thống bắt sự kiện click trên bản đồ và gọi hàm `onMapClicked(lat, lng)` để lấy tọa độ vĩ độ và kinh độ của vị trí click.
+- Bước 3: Hệ thống lưu tọa độ vào biến toàn cục `currentCoords` và thiết lập trạng thái GPS là giả lập (`mock`).
+- Bước 4: Hệ thống cập nhật vị trí ghim định vị của du khách trên bản đồ (hiển thị vòng tròn xanh nhấp nháy `user-pulse-marker`) thông qua hàm `updateUserLocationMarker(lat, lng)`.
+- Bước 5: Hệ thống gọi hàm `renderStallListCache()` để tính toán lại khoảng cách từ tọa độ click đến tất cả các cửa hàng bằng công thức Haversine, sắp xếp và cập nhật số mét hiển thị trên cột danh sách bên trái.
+- Bước 6: Hệ thống gọi hàm `checkStallsProximity(lat, lng)` để quét bán kính xung quanh vị trí click.
+  + Nếu khoảng cách từ vị trí click đến một quán ăn nhỏ hơn hoặc bằng 20 mét: Hệ thống tự động kích hoạt Use Case "Xem chi tiết quán ăn" (hiển thị thẻ Stall Card, cập nhật thông tin và tự động phát tệp âm thanh thuyết minh).
+  + Nếu khoảng cách lớn hơn 20 mét: Hệ thống ẩn thẻ Stall Card, tạm dừng trình phát nhạc và xóa đường dẫn audio cũ.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Chưa tải xong dữ liệu quán ăn
+- Nếu du khách click bản đồ giả lập vị trí nhưng cơ sở dữ liệu IndexedDB của trình duyệt chưa có thông tin quán ăn nào:
+- Hệ thống chỉ cập nhật ghim xanh trên bản đồ và hiển thị khoảng cách trống, không thể phát âm thanh thuyết minh tự động.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: QUÉT MÃ QR THANH TOÁN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Quét mã QR thanh toán.
+- Tác nhân (Actor): Du khách (Public User).
+- Tóm tắt: Du khách thực hiện thanh toán phí sử dụng dịch vụ thông qua quét mã QR hoặc thẻ ngân hàng (VNPay) để nâng cấp tài khoản lên Premium và mở khóa toàn bộ các tính năng thuyết minh âm thanh đa ngôn ngữ ngoại tuyến.
+- Tiền điều kiện (Preconditions):
+  + Du khách có kết nối Internet.
+  + Du khách đã đăng nhập bằng tài khoản du khách (Public).
+- Hậu điều kiện (Postconditions):
+  + Tài khoản du khách được nâng cấp thành công trên cơ sở dữ liệu (`HasPaidAccess = true`).
+  + `localStorage` được cập nhật trạng thái mở khóa thành công (`hasPaidAccess = true`).
+  + Hệ thống hiển thị thông báo thành công và cho phép du khách bắt đầu đồng bộ ngoại tuyến.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Du khách click vào chức năng Thanh toán trên giao diện PWA (hoặc khi bấm Đồng bộ nhưng hệ thống báo chưa mở khóa).
+- Bước 2: Hệ thống hiển thị Modal cổng thanh toán với các thông tin lựa chọn gói dịch vụ (ví dụ gói ngày/gói tour).
+- Bước 3: Du khách chọn gói dịch vụ mong muốn và click nút "Thanh Toán".
+- Bước 4: **(Include) Xác nhận thông tin giao dịch:** Hệ thống chuyển tiếp sang màn hình Xác nhận thông tin giao dịch, hiển thị mã đơn hàng, số tiền, và mô tả nội dung thanh toán để du khách kiểm tra.
+- Bước 5: Du khách click Xác nhận. Hệ thống gửi yêu cầu tới máy chủ Backend để tạo cổng thanh toán VNPay và trả về link liên kết thanh toán.
+- Bước 6: Hệ thống chuyển hướng trình duyệt của du khách sang cổng thanh toán VNPay hiển thị mã QR thanh toán.
+- Bước 7: Du khách dùng ứng dụng Ngân hàng trên điện thoại di động quét mã QR và xác nhận chuyển tiền.
+- Bước 8: Sau khi thanh toán thành công, cổng VNPay tự động chuyển hướng du khách quay về link nhận kết quả của Backend, Backend lưu trạng thái thanh toán thành công vào DB và chuyển hướng du khách về lại PWA kèm thông số thành công (`?vnp_ResponseCode=00`).
+- Bước 9: PWA phát hiện mã phản hồi thành công, cập nhật cờ `hasPaidAccess = true` vào bộ nhớ trình duyệt (`localStorage`) và hiển thị thông báo nâng cấp thành công.
+
+3. LUỒNG THAY THẾ (ALTERNATIVE FLOWS)
+
+3.1. Luồng thanh toán giả lập (Development / Mock Mode)
+- Nếu hệ thống đang chạy ở môi trường thử nghiệm (Local Development) và không cấu hình các khóa bảo mật của VNPay:
+- Tại Bước 5: Máy chủ Backend tự động nhận diện và chuyển hướng du khách sang giao diện trang thanh toán giả lập cục bộ.
+- Tại Bước 6: Du khách chỉ cần click nút "Xác nhận thanh toán thành công" trên trang giả lập mà không cần quét mã QR thật.
+- Hệ thống ghi nhận thanh toán thành công và mở khóa truy cập offline bình thường.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Giao dịch bị hủy hoặc thất bại
+- Tại Bước 7: Nếu du khách bấm nút Hủy giao dịch trên ứng dụng Ngân hàng hoặc số dư không đủ:
+- VNPay trả về mã lỗi thất bại. Hệ thống chuyển hướng du khách về PWA và hiển thị thông báo đỏ: "Giao dịch thanh toán thất bại hoặc đã bị hủy."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: QUẢN LÝ THÔNG TIN QUẢN ĂN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Quản lý thông tin quán ăn.
+- Tác nhân (Actor): Chủ Quán (Owner).
+- Tóm tắt: Cho phép chủ quán đăng tải thông tin quán ăn mới trong quá trình đăng ký tài khoản hoặc chỉnh sửa thông tin chi tiết của quán ăn hiện có (Tên quán, Địa chỉ, Mô tả món ăn, Vị trí trên bản đồ).
+- Tiền điều kiện (Preconditions):
+  + Chủ quán có kết nối Internet.
+  + Đã đăng nhập bằng tài khoản Chủ quán (đối với hành động Chỉnh sửa) hoặc đang điền Form đăng ký (đối với hành động Thêm mới).
+- Hậu điều kiện (Postconditions):
+  + Thông tin quán ăn được lưu vào cơ sở dữ liệu ở trạng thái chờ duyệt (`IsVerified = false`).
+  + Admin nhận được thông báo yêu cầu phê duyệt trên trang quản trị.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Chủ quán truy cập vào giao diện quản lý thông tin quán ăn (trên trang `owner.html` hoặc trang đăng ký `register-owner.html`).
+- Bước 2: Hệ thống tải dữ liệu hiện tại của quán ăn lên Form chỉnh sửa (nếu là sửa thông tin) hoặc hiển thị Form trống (nếu là đăng ký thêm thông tin).
+- Bước 3: Chủ quán điền/sửa các trường dữ liệu: Tên quán ăn, Địa chỉ, Mô tả thuyết minh lịch sử/món ăn.
+- Bước 4: Chủ quán xác định vị trí tọa độ của quán ăn trên bản đồ Leaflet tích hợp bằng cách: Click chọn tọa độ trực tiếp hoặc kéo thả (drag & drop) ghim quán ăn đến vị trí mong muốn. Hệ thống tự động điền giá trị vĩ độ (Latitude) và kinh độ (Longitude) vào form.
+- Bước 5: Chủ quán click nút "Lưu thay đổi" (hoặc "Gửi đơn đăng ký").
+- Bước 6: Hệ thống gửi dữ liệu (POST hoặc PUT) lên API Backend:
+  + Đối với Thêm mới: Gửi kèm thông tin đăng ký tài khoản qua API `POST /api/auth/register-owner`.
+  + Đối với Sửa thông tin: Gửi qua API `PUT /api/owner/pois/{id}` (yêu cầu Authorization JWT Token của Chủ quán).
+- Bước 7: Backend lưu thông tin quán ăn vào DB, cập nhật cột `IsVerified = false` và trả về mã phản hồi thành công. Hệ thống hiển thị thông báo: "Thông tin đã được lưu và đang chờ Quản trị viên phê duyệt."
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Thêm thông tin quán ăn mới (đăng ký)
+- Sử dụng khi chủ quán đăng ký tài khoản lần đầu. Hệ thống tạo đồng thời bản ghi tài khoản người dùng và bản ghi quán ăn liên kết.
+
+3.2. Sửa thông tin quán ăn hiện có
+- Chủ quán thay đổi bất kỳ trường thông tin nào (ví dụ đổi tên quán hoặc định vị lại tọa độ). Sau khi lưu, trạng thái kiểm duyệt của quán ăn sẽ chuyển về "Chờ duyệt", tạm thời dừng hiển thị bản dịch cũ cho du khách nếu có thay đổi lớn, cho đến khi Admin duyệt lại.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Nhập thiếu hoặc sai định dạng dữ liệu
+- Tại Bước 5: Nếu chủ quán để trống tên quán, địa chỉ hoặc chưa chọn tọa độ trên bản đồ:
+- Hệ thống chặn việc gửi dữ liệu, viền đỏ các trường thiếu và hiển thị thông báo lỗi: "Vui lòng nhập đầy đủ thông tin bắt buộc và chọn tọa độ quán ăn trên bản đồ."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: QUẢN LÝ HÌNH ẢNH THỰC ĐƠN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Quản lý hình ảnh thực đơn.
+- Tác nhân (Actor): Chủ Quán (Owner).
+- Tóm tắt: Cho phép chủ quán tải lên hình ảnh thực đơn (menu), chỉnh sửa/sắp xếp thứ tự ảnh hoặc xóa các tệp hình ảnh thực đơn cũ để du khách có thể xem khi sử dụng ứng dụng.
+- Tiền điều kiện (Preconditions):
+  + Chủ quán đã đăng nhập thành công vào trang Owner Dashboard.
+  + Đã có quán ăn liên kết và được duyệt hoặc đang chờ duyệt.
+- Hậu điều kiện (Postconditions):
+  + Các tệp ảnh thực đơn được lưu trên thư mục lưu trữ của máy chủ Backend (`wwwroot/images/menus/`).
+  + Các bản ghi đường dẫn ảnh tương ứng được lưu/cập nhật/xóa trong bảng cơ sở dữ liệu `StallMenuImages`.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Chủ quán mở tab "Thực Đơn" trên giao diện Owner Dashboard.
+- Bước 2: Hệ thống gửi yêu cầu `GET` để tải và hiển thị danh sách các ảnh thực đơn hiện có của quán.
+- Bước 3: Chủ quán thực hiện các hành động Quản lý (Thêm ảnh mới, Thay đổi/Đặt ảnh chính, hoặc Xóa ảnh cũ).
+- Bước 4: Chủ quán bấm "Lưu" hoặc hệ thống tự động gửi yêu cầu API tương ứng lên Backend.
+- Bước 5: Backend lưu/xóa tệp vật lý trên ổ cứng máy chủ và cập nhật cơ sở dữ liệu.
+- Bước 6: Hệ thống làm mới (reload) giao diện và hiển thị danh sách thực đơn đã cập nhật.
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Thêm hình ảnh thực đơn mới
+- Chủ quán click chọn ảnh từ thiết bị (hoặc chụp ảnh trực tiếp) và bấm nút "Tải lên" (Upload).
+- Hệ thống gửi file qua API `POST /api/owner/pois/{id}/menu` dưới dạng Multipart FormData.
+- Máy chủ lưu tệp tin, sinh tên file ngẫu nhiên tránh trùng lặp và lưu bản ghi vào DB.
+
+3.2. Sửa thông tin hình ảnh thực đơn
+- Chủ quán click chọn một hình ảnh thực đơn làm Ảnh đại diện chính (IsMainImage) hoặc chỉnh sửa mô tả ngắn của ảnh.
+- Hệ thống gửi yêu cầu cập nhật lên Backend để cập nhật cờ dữ liệu.
+
+3.3. Xóa hình ảnh thực đơn
+- Chủ quán click vào nút xóa (biểu tượng thùng rác) trên ảnh thực đơn tương ứng.
+- Hệ thống gửi yêu cầu `DELETE /api/owner/pois/{id}/menu/{imageId}` lên Backend.
+- Backend xóa bản ghi trong DB và thực hiện xóa tệp ảnh vật lý trong thư mục `wwwroot/images/menus/`.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Tải lên tệp ảnh quá dung lượng cho phép
+- Tại Luồng mở rộng 3.1: Nếu chủ quán chọn tải lên tệp ảnh có dung lượng vượt quá 5MB hoặc sai định dạng (ví dụ tệp .pdf, .docx):
+- Hệ thống hiển thị thông báo lỗi: "Chỉ cho phép tải lên tệp ảnh (JPG, PNG, WEBP) với dung lượng nhỏ hơn 5MB." và dừng tiến trình tải lên.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: XEM THÔNG BÁO HỆ THỐNG
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Xem thông báo hệ thống.
+- Tác nhân (Actor): Chủ Quán (Owner).
+- Tóm tắt: Cho phép chủ quán xem các thông báo được gửi từ hệ thống hoặc Quản trị viên (ví dụ: Thông báo duyệt quán ăn thành công, thông báo từ chối phê duyệt kèm lý do, hoặc thông báo bảo trì nâng cấp hệ thống).
+- Tiền điều kiện (Preconditions):
+  + Chủ quán đã đăng nhập thành công vào trang Owner Dashboard.
+  + Thiết bị đang kết nối Internet.
+- Hậu điều kiện (Postconditions):
+  + Các thông báo mới nhất hiển thị rõ ràng trên hộp thoại/danh sách thông báo để chủ quán nắm bắt.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Chủ quán đăng nhập vào trang Owner Dashboard (`owner.html`).
+- Bước 2: Hệ thống tự động kích hoạt hàm `loadNotifications()` khi trang web tải xong.
+- Bước 3: Hệ thống gửi yêu cầu `GET` đến endpoint `/api/owner/notifications` kèm theo JWT Token của chủ quán trong Header Authorization.
+- Bước 4: Máy chủ Backend xác thực tài khoản chủ quán, truy vấn danh sách thông báo tương ứng của tài khoản này từ bảng cơ sở dữ liệu.
+- Bước 5: Backend trả về danh sách dạng JSON.
+- Bước 6: Hệ thống nhận kết quả và dựng nội dung HTML hiển thị vào vùng `#notifications-content`. Mỗi thông báo ghi rõ tiêu đề, nội dung chi tiết, trạng thái và ngày giờ gửi.
+- Bước 7: Nếu danh sách rỗng, hệ thống hiển thị dòng chữ: "Không có thông báo nào."
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Lỗi kết nối API lấy thông báo
+- Tại Bước 3: Nếu máy chủ Backend gặp lỗi hoặc ngắt kết nối:
+- Hệ thống hiển thị thông báo lỗi trên giao diện: "Lỗi tải thông báo từ hệ thống." và ghi log lỗi vào console.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: TỐI ƯU HÓA THUYẾT MINH
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Tối ưu hóa thuyết minh.
+- Tác nhân (Actor): Chủ Quán (Owner).
+- Tóm tắt: Cho phép chủ quán sử dụng Trợ lý Trí tuệ nhân tạo (Gemini AI) để viết lại, tối ưu hóa và trau chuốt nội dung mô tả thô của quán ăn thành một bài thuyết minh lịch sử, văn hóa ẩm thực sinh động, hấp dẫn du khách.
+- Tiền điều kiện (Preconditions):
+  + Chủ quán đã đăng nhập thành công.
+  + Đang mở Form chỉnh sửa thông tin quán ăn.
+  + Đã điền một mô tả sơ bộ vào ô nhập liệu.
+- Hậu điều kiện (Postconditions):
+  + Văn bản mô tả thô ban đầu được thay thế bằng văn bản thuyết minh đã tối ưu hóa chất lượng cao do Gemini AI soạn thảo.
+  + Trạng thái quán ăn chuyển về "Chờ duyệt" để chờ Admin kiểm tra trước khi sinh audio mới.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Chủ quán điền nội dung mô tả thô hoặc dàn ý món ăn vào ô nhập liệu mô tả quán ăn.
+- Bước 2: Chủ quán click vào nút "Tối ưu hóa thuyết minh bằng AI".
+- Bước 3: Hệ thống PWA kiểm tra giới hạn lượt dùng AI trong ngày (mỗi tài khoản giới hạn tối đa 5 lượt/ngày).
+- Bước 4: Hệ thống gửi yêu cầu `POST` tới endpoint `/api/ai/enhance-description` kèm chuỗi mô tả thô trong Body JSON và JWT Token của chủ quán.
+- Bước 5: Máy chủ Backend xác thực yêu cầu, gọi dịch vụ AI tích hợp Gemini API để gửi Prompt yêu cầu viết lại đoạn mô tả thô một cách chuyên nghiệp, văn phong truyền cảm, đầy đủ thông tin lịch sử và nguyên liệu món ăn.
+- Bước 6: Gemini API trả về kết quả văn bản thuyết minh đã tối ưu hóa. Backend ghi nhận telemetry tăng số lượt sử dụng AI của tài khoản lên 1.
+- Bước 7: Backend gửi phản hồi chứa văn bản tối ưu `{ enhancedText }` về Frontend.
+- Bước 8: Hệ thống PWA nhận kết quả, tự động điền văn bản mới vào ô nhập liệu Mô tả để chủ quán kiểm tra và chỉnh sửa thêm nếu muốn trước khi bấm Lưu.
+
+3. LUỒNG THAY THẾ (ALTERNATIVE FLOWS)
+
+3.1. Thiếu Gemini API Key trên Server
+- Nếu máy chủ Backend không được cấu hình mã khóa API Key của Gemini AI:
+- Tại Bước 5: Máy chủ phát hiện thiếu cấu hình API Key, tự động trả về văn bản gốc của chủ quán kèm dòng cảnh báo: "(Lưu ý: Không tìm thấy Gemini API Key. Đây là mô tả gốc của bạn.)" để đảm bảo hệ thống không bị lỗi crash.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Vượt quá hạn ngạch sử dụng AI trong ngày
+- Tại Bước 3: Nếu chủ quán đã dùng hết 5 lượt tối ưu hóa bằng AI trong ngày:
+- Hệ thống hiển thị hộp thoại cảnh báo: "Bạn đã vượt quá giới hạn sử dụng AI hôm nay (Tối đa 5 lần/ngày). Vui lòng thử lại vào ngày mai!" và hủy gửi yêu cầu lên Backend.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: XEM DASHBOARD THỐNG KÊ
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Xem Dashboard thống kê.
+- Tác nhân (Actor): Chủ Quán (Owner).
+- Tóm tắt: Cung cấp cho chủ quán biểu đồ trực quan và các chỉ số thống kê về lượng du khách ghé thăm quán ăn của mình theo thời gian thực để đánh giá mức độ hấp dẫn và hoạt động kinh doanh.
+- Tiền điều kiện (Preconditions):
+  + Chủ quán đã đăng nhập vào Owner Dashboard.
+  + Tài khoản đã được liên kết với một quán ăn.
+- Hậu điều kiện (Postconditions):
+  + Biểu đồ đường (Line Chart) biểu diễn số lượt ghé thăm quán hợp lệ theo ngày hiển thị rõ ràng trên màn hình.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Chủ quán click vào tab "Thống Kê" trên giao diện quản trị.
+- Bước 2: Hệ thống tải file `owner-stats.html` thông qua một iframe tích hợp `#owner-stats-iframe`.
+- Bước 3: Script `owner-stats.js` tự động khởi chạy, thiết lập bộ lọc ngày mặc định hiển thị trong vòng 10 ngày gần nhất (từ ngày hiện tại lùi về 9 ngày trước).
+- Bước 4: Hệ thống gửi yêu cầu `GET` đến endpoint `/api/owner/pois` để lấy thông tin chi tiết về quán ăn thuộc sở hữu của tài khoản này.
+- Bước 5: Sau khi có mã ID của quán ăn, hệ thống tiếp tục gửi yêu cầu `GET` đến endpoint `/api/visits/stalls/{stallId}/daily?fromDate={từ_ngày}&toDate={đến_ngày}`.
+- Bước 6: **(Include) Theo dõi lưu lượng truy cập:** Hệ thống đọc mảng dữ liệu trả về chứa các bản ghi lượt khách ghé thăm hợp lệ (validVisitCount) theo từng ngày. Sau đó, hệ thống sử dụng thư viện Chart.js để dựng một biểu đồ đường màu cam với hiệu ứng đường cong mềm mại mượt mà đại diện cho lưu lượng truy cập theo thời gian.
+- Bước 7: Biểu đồ được vẽ lên đối tượng Canvas `#os-visit-chart` và hiển thị chi tiết số lượng khi di chuột qua các điểm mốc ngày.
+- Bước 8: Hệ thống kích hoạt hàm `setInterval` để tự động làm mới (reload) dữ liệu thống kê này sau mỗi 30 giây nhằm hiển thị số liệu cập nhật mới nhất.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Tài khoản chủ quán chưa có quán ăn liên kết
+- Tại Bước 4: Nếu tài khoản chủ quán mới đăng ký và chưa được cấp quyền quản lý quán ăn nào trong cơ sở dữ liệu:
+- Hệ thống hiển thị thông báo lỗi trên màn hình: "Bạn chưa có quán được đăng ký." và không vẽ biểu đồ.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: DUYỆT CẬP NHẬT THÔNG TIN QUÁN ĂN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Duyệt cập nhật thông tin quán ăn.
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên phê duyệt hoặc từ chối các yêu cầu cập nhật thông tin quán ăn (Tên, địa chỉ, mô tả, tọa độ) do chủ quán gửi lên hệ thống.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập thành công vào Admin Portal (`admin.html`).
+  + Hệ thống có các yêu cầu cập nhật thông tin quán ăn đang ở trạng thái chờ duyệt.
+- Hậu điều kiện (Postconditions):
+  + Nếu phê duyệt: Thông tin mới được áp dụng chính thức vào DB (`IsVerified = true`), hệ thống dịch thuật và sinh tệp audio Edge-TTS mới tự động ở nền, gửi thông báo phê duyệt tới chủ quán.
+  + Nếu từ chối: Yêu cầu bị hủy bỏ, giữ nguyên thông tin quán cũ, gửi thông báo từ chối kèm lý do tới chủ quán.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin truy cập vào tab "Yêu cầu Duyệt" -> "Cập nhật quán" trên giao diện quản trị.
+- Bước 2: Hệ thống gửi yêu cầu `GET /api/admin/submissions` và hiển thị danh sách các đơn sửa đổi thông tin quán dưới dạng bảng.
+- Bước 3: Admin click nút "Xem chi tiết" của một đơn bất kỳ để mở modal chi tiết:
+  + Xem thông tin cũ song song với thông tin mới đề xuất.
+  + Admin có thể click nút nghe thử tệp audio thuyết minh đa ngôn ngữ được sinh tạm thời trên hệ thống.
+- Bước 4: Admin đưa ra quyết định xử lý:
+  + **Trường hợp Phê duyệt (Approve):** Admin click nút "Phê Duyệt". Hệ thống hiển thị hộp thoại ghi chú. Admin nhập ghi chú duyệt (nếu có) và click Xác nhận.
+  + **Trường hợp Từ chối (Reject):** Admin click nút "Từ Chối". Hệ thống hiển thị hộp thoại ghi chú bắt buộc nhập lý do từ chối. Admin nhập lý do từ chối và click Xác nhận.
+- Bước 5: Hệ thống gửi yêu cầu API lên Backend:
+  + Phê duyệt: `POST /api/admin/submissions/{id}/approve` kèm ghi chú.
+  + Từ chối: `POST /api/admin/submissions/{id}/reject` kèm ghi chú.
+- Bước 6: Backend cập nhật trạng thái trong cơ sở dữ liệu, ghi nhật ký hệ thống (Telemetry), gửi thông báo cho chủ quán và trả về kết quả thành công.
+- Bước 7: Frontend đóng modal, làm mới danh sách bảng yêu cầu duyệt.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Chưa nhập lý do khi từ chối yêu cầu
+- Tại Bước 4, trường hợp Từ chối: Nếu Admin để trống hộp thoại nhập ghi chú lý do từ chối:
+- Hệ thống hiển thị cảnh báo đỏ yêu cầu nhập lý do và chặn không cho gửi yêu cầu lên Backend.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: GIÁM SÁT NGƯỜI DÙNG THỜI GIAN THỰC
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Giám sát người dùng thời gian thực.
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên theo dõi trực quan vị trí địa lý của toàn bộ du khách đang truy cập ứng dụng trên Bản đồ Live Map, kèm theo thông tin hoạt động và hành động tương tác cuối cùng của họ theo thời gian thực.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập vào Admin Portal.
+  + Có kết nối Internet.
+- Hậu điều kiện (Postconditions):
+  + Bản đồ hiển thị ghim xanh chuyển động đại diện cho vị trí người dùng thực tế và các ghim màu cam/xám đại diện cho các địa điểm quán ăn.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin chọn tab "Giám sát trực tuyến" (Live Tracking) trên giao diện quản trị.
+- Bước 2: Hệ thống khởi tạo bản đồ Leaflet tập trung vào khu phố ẩm thực Vĩnh Khánh.
+- Bước 3: Hệ thống gửi yêu cầu `GET` tới endpoint `/api/admin/metrics` để hiển thị số lượng người dùng đang online lên thẻ chỉ số "Trực tuyến".
+- Bước 4: Hệ thống gửi yêu cầu `GET` tới endpoint `/api/admin/active-users` để lấy danh sách tọa độ và trạng thái hoạt động của những người dùng đang mở app trong vòng 5 phút gần đây.
+- Bước 5: Hệ thống xóa ghim cũ và vẽ lại các ghim radar màu xanh dương (`custom-user-radar`) lên bản đồ Leaflet tương ứng với tọa độ vĩ độ và kinh độ của từng người dùng online.
+- Bước 6: Admin click vào một ghim người dùng màu xanh dương bất kỳ: Hệ thống mở popup hiển thị chi tiết: Tên đăng nhập (Username), Vai trò (Role), Thời gian cập nhật cuối, và Hành động cuối cùng (Ví dụ: "Nghe thuyết minh quán Ốc Oanh").
+- Bước 7: Hệ thống kích hoạt chu kỳ tự động gọi lại hàm `refreshDashboardData` sau mỗi 10 giây (`setInterval`) để liên tục cập nhật tọa độ di chuyển của du khách trên bản đồ.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Không kết nối được mạng hoặc dịch vụ API giám sát bị ngắt
+- Tại Bước 4 hoặc 7: Nếu mất mạng hoặc API trả về lỗi:
+- Hệ thống ghi log lỗi và giữ nguyên vị trí ghim người dùng cũ trên bản đồ, đồng thời chuyển thẻ chỉ số người dùng online về "0".
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: XEM DASHBOARD THỐNG KÊ (ADMIN)
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Xem Dashboard thống kê (Admin).
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên xem báo cáo số liệu tổng quan toàn bộ hệ thống cùng đồ thị trực quan phân tích số lượt du khách ghé thăm các quán ăn để đánh giá hiệu năng hệ thống và độ phổ biến của phố ẩm thực.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập thành công vào Admin Portal.
+  + Thiết bị đang kết nối Internet.
+- Hậu điều kiện (Postconditions):
+  + Các số liệu tổng số quán ăn, người dùng, người dùng online hiển thị chính xác.
+  + Đồ thị cột/đường biểu diễn lượt truy cập theo thời gian được dựng thành công.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin chọn tab "Dashboard Thống kê" (Visits Dashboard) trên thanh menu bên.
+- Bước 2: **(Include) Xem số liệu tổng quát:** Hệ thống gọi hàm `loadMetrics()` gửi yêu cầu `GET /api/admin/metrics` lên Backend. Backend trả về tổng số lượng quán ăn, người dùng và số người dùng đang trực tuyến. Hệ thống điền các giá trị này vào 3 ô thẻ thông số (Stalls, Users, Online).
+- Bước 3: **(Include) Theo dõi lưu lượng truy cập:** Hệ thống gọi hàm `loadDashboardStats()` gửi yêu cầu `GET /api/visits/dashboard` lên Backend. Backend trả về danh sách xếp hạng tổng số lượt ghé thăm và lượt nghe thuyết minh của các quán ăn dưới dạng JSON.
+- Bước 4: Hệ thống vẽ biểu đồ so sánh lưu lượng truy cập giữa các quán bằng thư viện Chart.js hiển thị trên đối tượng Canvas `#visit-chart-canvas`.
+- Bước 5: Admin có thể chọn lọc dữ liệu theo khoảng thời gian bằng cách điều chỉnh ô nhập ngày bắt đầu (`#visit-from-date`) và ngày kết thúc (`#visit-to-date`), sau đó bấm "Áp dụng". Hệ thống sẽ gửi yêu cầu lấy số liệu tương ứng và vẽ lại biểu đồ.
+- Bước 6: Hệ thống tự động làm mới số liệu tổng quát và đồ thị sau mỗi 10 giây.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Lỗi kết nối API Dashboard
+- Tại Bước 2 hoặc 3: Nếu máy chủ không phản hồi hoặc bị ngắt kết nối:
+- Hệ thống hiển thị thông báo lỗi trên khung biểu đồ và đặt các giá trị chỉ số tổng quát về mặc định (chữ "--" hoặc "0").
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: DUYỆT ĐƠN ĐĂNG KÝ CHỦ QUÁN
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Duyệt đơn đăng ký chủ quán.
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên phê duyệt hoặc từ chối đơn đăng ký tài khoản của chủ quán mới kèm theo các thông tin pháp lý của quán ăn tương ứng.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập vào Admin Portal.
+- Hậu điều kiện (Postconditions):
+  + Nếu phê duyệt: Tài khoản chủ quán được kích hoạt để có thể đăng nhập, quán ăn đi kèm được tự động kích hoạt công khai trên bản đồ du lịch.
+  + Nếu từ chối: Đơn đăng ký bị hủy bỏ, tài khoản và quán ăn không được tạo hoặc bị vô hiệu hóa.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin truy cập vào tab "Yêu cầu Duyệt" -> "Đơn đăng ký Chủ quán".
+- Bước 2: Hệ thống gửi yêu cầu `GET /api/admin/registrations` và hiển thị danh sách các đơn đăng ký chủ quán đang ở trạng thái Chờ duyệt (Pending) dưới dạng bảng (`#registrations-table-body`). Bảng chứa các cột thông tin: Tên chủ quán, Số điện thoại, Email, Số CCCD, Tên quán ăn đăng ký và Địa chỉ.
+- Bước 3: Admin click nút "Xem chi tiết" để hiển thị hộp thoại chứa toàn bộ thông tin đăng ký và ảnh hồ sơ pháp lý đi kèm.
+- Bước 4: Admin đưa ra quyết định xử lý:
+  + **Trường hợp Phê duyệt (Approve):** Admin click nút "Phê Duyệt". Hệ thống hiển thị hộp thoại ghi chú. Admin nhập ghi chú duyệt và click Xác nhận.
+  + **Trường hợp Từ chối (Reject):** Admin click nút "Từ Chối". Hệ thống hiển thị hộp thoại ghi chú yêu cầu bắt buộc nhập lý do từ chối. Admin nhập lý do từ chối và click Xác nhận.
+- Bước 5: Hệ thống gửi yêu cầu API lên Backend:
+  + Phê duyệt: `POST /api/admin/registrations/{id}/approve` kèm ghi chú.
+  + Từ chối: `POST /api/admin/registrations/{id}/reject` kèm ghi chú.
+- Bước 6: Backend cập nhật trạng thái đơn đăng ký sang "Approved" hoặc "Rejected". 
+  + Nếu Approved: Backend tự động kích hoạt tài khoản đăng nhập của chủ quán và thiết lập cờ `IsVerified = true` cho quán ăn đã đăng ký để hiển thị công khai cho du khách.
+- Bước 7: Frontend đóng modal, làm mới danh sách đơn đăng ký chờ duyệt.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Chưa nhập lý do từ chối đơn đăng ký
+- Tại Bước 4, trường hợp Từ chối: Nếu Admin để trống hộp thoại lý do từ chối:
+- Hệ thống hiển thị thông báo lỗi yêu cầu nhập lý do từ chối và chặn không gửi API lên Backend.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: XEM NHẬT KÝ HỆ THỐNG
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Xem nhật ký hệ thống.
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên truy cập danh sách lịch sử ghi nhận hoạt động (telemetry logs) của toàn bộ hệ thống để phục vụ công tác giám sát an ninh, gỡ lỗi và kiểm toán hoạt động của các tài khoản (Admin, Chủ quán, Du khách).
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập vào Admin Portal.
+- Hậu điều kiện (Postconditions):
+  + Bảng nhật ký hoạt động hệ thống được tải và hiển thị rõ ràng theo trình tự thời gian từ mới nhất đến cũ nhất.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin chọn tab "Nhật Ký Hệ Thống" (Telemetry Logs) trên thanh menu bên.
+- Bước 2: Hệ thống gửi yêu cầu `GET` đến endpoint `/api/admin/telemetry` kèm theo Bearer Token xác thực của Admin.
+- Bước 3: Backend kiểm tra quyền xác thực, truy vấn danh sách log từ bảng dữ liệu Telemetry của cơ sở dữ liệu.
+- Bước 4: Backend trả về dữ liệu danh sách log dạng JSON chứa các trường: Mã log, Thời gian (Timestamp), Tên đăng nhập thực hiện (Username), Hành động (Action), Địa chỉ IP, và Mô tả chi tiết hành động.
+- Bước 5: Hệ thống nhận dữ liệu và kết xuất ra bảng hiển thị `#telemetry-table-body`.
+- Bước 6: Mỗi 10 giây, hệ thống tự động tải lại dữ liệu một lần để cập nhật các hành động mới phát sinh.
+
+3. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+3.1. Lỗi kết nối cơ sở dữ liệu nhật ký
+- Tại Bước 3: Nếu máy chủ không thể đọc được bảng cơ sở dữ liệu nhật ký:
+- Hệ thống trả về lỗi HTTP 500. Frontend bắt lỗi và hiển thị thông báo: "Lỗi tải lịch sử nhật ký hệ thống."
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: QUẢN LÝ QUÁN ĂN (ADMIN)
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Quản lý quán ăn (Admin).
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên xem danh sách toàn bộ các quán ăn trong hệ thống, tìm kiếm, kiểm tra thông tin chi tiết và thực hiện khóa hoặc mở khóa hiển thị (hoạt động) của từng quán ăn.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập vào Admin Portal.
+- Hậu điều kiện (Postconditions):
+  + Trạng thái hoạt động (mở khóa/khóa) của quán ăn được cập nhật trong cơ sở dữ liệu (`IsActive` thay đổi) và phản ánh trực tiếp trên bản đồ du lịch của du khách.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin chọn tab "Quản Lý Quán Ăn" (Stalls Management) trên giao diện quản trị.
+- Bước 2: Hệ thống gửi yêu cầu `GET` tới endpoint `/api/admin/stalls` kèm Bearer Token xác thực của Admin.
+- Bước 3: Backend xác thực quyền, truy vấn danh sách toàn bộ quán ăn từ DB (không phân biệt đã duyệt hay chưa) và trả về mảng JSON.
+- Bước 4: Hệ thống hiển thị danh sách các quán ăn lên bảng UI `#stalls-table-body`.
+- Bước 5: Admin thực hiện các tác vụ quản lý mở rộng (Xem chi tiết, Tìm kiếm lọc, Khóa/Mở khóa quán ăn).
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Tìm kiếm quán ăn
+- Admin nhập từ khóa vào ô `#stalls-search-input` và chọn bộ lọc trạng thái `#stalls-active-filter`.
+- Hệ thống gọi hàm `filterAndRenderStalls()` so sánh từ khóa (không dấu và viết thường) với tên quán, địa chỉ hoặc email chủ quán, tiến hành lọc dữ liệu hiển thị trên bảng.
+
+3.2. Xem chi tiết quán ăn
+- Admin click nút "Xem" trên dòng quán ăn tương ứng.
+- Hệ thống mở modal chi tiết hiển thị toàn bộ các trường thông tin: Tên quán, Địa chỉ, Tọa độ bản đồ, Mô tả món ăn, Ngày đăng ký, Thông tin tài khoản chủ sở hữu liên kết và các ảnh thực đơn.
+
+3.3. Khóa quán ăn / Mở khóa quán ăn
+- Admin click nút "Khóa" (hoặc "Mở khóa") trên dòng thông tin quán ăn.
+- Hệ thống gửi yêu cầu `POST` tới endpoint `/api/admin/stalls/{id}/toggle-active` kèm theo Token.
+- Backend tiến hành đảo ngược giá trị thuộc tính hoạt động của quán ăn (`IsActive = !IsActive`) trong cơ sở dữ liệu.
+  + Nếu quán ăn bị Khóa: Trạng thái hiển thị công khai bị tắt, du khách sẽ không nhìn thấy ghim quán ăn trên bản đồ PWA nữa.
+  + Nếu quán ăn được Mở khóa: Quán ăn hiển thị công khai bình thường.
+- Backend trả về kết quả thành công. Frontend tiến hành cập nhật lại trạng thái nút và nhãn hiển thị trên bảng quản trị.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Lỗi cập nhật trạng thái hoạt động lên Server
+- Tại Luồng mở rộng 3.3: Nếu gửi yêu cầu toggle-active bị lỗi mạng hoặc timeout:
+- Hệ thống hiển thị cảnh báo lỗi: "Không thể cập nhật trạng thái hoạt động của quán ăn. Vui lòng thử lại!" và giữ nguyên trạng thái cũ.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: QUẢN LÝ NGƯỜI DÙNG (ADMIN)
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Quản lý người dùng.
+- Tác nhân (Actor): Quản trị viên (Admin).
+- Tóm tắt: Cho phép Quản trị viên quản lý danh sách toàn bộ người dùng trong hệ thống (bao gồm Admin khác, Chủ quán, và Du khách), tìm kiếm thông tin, xem chi tiết và thực hiện khóa hoặc mở khóa tài khoản người dùng để chặn hoặc cho phép truy cập.
+- Tiền điều kiện (Preconditions):
+  + Quản trị viên đã đăng nhập thành công vào Admin Portal.
+- Hậu điều kiện (Postconditions):
+  + Tài khoản người dùng bị khóa sẽ không thể đăng nhập hoặc sử dụng bất kỳ tính năng nào yêu cầu xác thực JWT Token.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Admin chọn tab "Quản Lý Người Dùng" (Users Management) trên giao diện quản trị.
+- Bước 2: Hệ thống gửi yêu cầu `GET` tới endpoint `/api/admin/users` kèm Bearer Token xác thực của Admin.
+- Bước 3: Backend kiểm tra quyền Admin, truy vấn danh sách người dùng từ DB và trả về mảng dữ liệu JSON.
+- Bước 4: Hệ thống hiển thị danh sách người dùng lên bảng UI `#users-table-body`.
+- Bước 5: Admin thực hiện các tác vụ quản lý mở rộng (Xem chi tiết tài khoản, Tìm kiếm tài khoản, Khóa/Mở khóa tài khoản).
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Tìm kiếm tài khoản
+- Admin nhập từ khóa vào ô nhập liệu `#users-search-input` và chọn bộ lọc trạng thái `#users-active-filter`.
+- Hệ thống gọi hàm `filterAndRenderUsers()` so sánh từ khóa với Tên đăng nhập (Username), Họ tên (FullName), SĐT hoặc Email của người dùng để cập nhật dữ liệu bảng.
+
+3.2. Xem chi tiết tài khoản
+- Admin click nút "Xem" trên dòng người dùng tương ứng.
+- Hệ thống mở modal chi tiết hiển thị toàn bộ các trường thông tin: ID tài khoản, Tên đăng nhập, Họ tên, Email, Số điện thoại, Vai trò (Role), Số CCCD (đối với chủ quán), ngày tạo, và ảnh Avatar đại diện.
+
+3.3. Khóa tài khoản quán ăn / Mở khóa tài khoản quán ăn
+- Admin click nút "Khóa" (hoặc "Mở khóa") trên dòng người dùng tương ứng.
+- Hệ thống gửi yêu cầu `POST` tới endpoint `/api/admin/users/{id}/toggle-active` kèm theo Token.
+- Backend tiến hành đảo ngược trạng thái hoạt động của tài khoản người dùng (`IsActive = !IsActive`) trong cơ sở dữ liệu.
+  + Nếu bị Khóa: Trạng thái tài khoản đổi thành Khóa, Token JWT cũ bị vô hiệu hóa, người dùng đó bị ngắt kết nối và không thể đăng nhập lại.
+  + Nếu được Mở khóa: Tài khoản được khôi phục quyền truy cập bình thường.
+- Backend trả về kết quả thành công. Frontend làm mới giao diện hiển thị bảng.
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Tự khóa tài khoản của chính mình (Self-Lock Prevention)
+- Backend phát hiện mã ID tài khoản trùng khớp với ID trong Token của Admin đang gửi yêu cầu.
+- Backend chặn hành động và trả về mã lỗi HTTP 400 Bad Request kèm thông điệp: "Bạn không được phép tự khóa tài khoản của chính mình."
+- Frontend hiển thị thông báo cảnh báo lỗi đó lên màn hình.
+
+================================================================================
+
+ĐẶC TẢ CHI TIẾT USE CASE: ĐĂNG NHẬP HỆ THỐNG
+
+1. THÔNG TIN CHUNG
+- Tên Use Case: Đăng nhập hệ thống.
+- Tác nhân (Actor): Chủ Quán (Owner), Quản trị viên (Admin).
+- Tóm tắt: Cho phép Chủ quán và Quản trị viên thực hiện đăng nhập vào hệ thống quản lý bằng tài khoản được cấp để truy cập vào trang quản trị tương ứng.
+- Tiền điều kiện (Preconditions):
+  + Người dùng có tài khoản hợp lệ trên hệ thống (tài khoản Admin được tạo sẵn trong hạt giống dữ liệu hoặc tài khoản Chủ quán đã được Admin phê duyệt kích hoạt).
+  + Thiết bị đang kết nối Internet.
+- Hậu điều kiện (Postconditions):
+  + Người dùng nhận được Token xác thực JWT (JSON Web Token) để truy cập các tài nguyên bảo mật.
+  + Trình duyệt chuyển hướng người dùng sang trang dashboard tương ứng với vai trò của họ.
+
+2. LUỒNG SỰ KIỆN CHÍNH (BASIC FLOW)
+- Bước 1: Người dùng truy cập trang đăng nhập (`login.html`).
+- Bước 2: Người dùng nhập Tên đăng nhập (Username) và Mật khẩu (Password).
+- Bước 3: Người dùng bấm nút "Đăng Nhập" (hoặc nhấn Enter).
+- Bước 4: Hệ thống Frontend gửi yêu cầu `POST /api/auth/login` chứa JSON mang thông tin Username và Password trong Request Body.
+- Bước 5: Máy chủ Backend tiếp nhận yêu cầu, truy vấn thông tin người dùng từ cơ sở dữ liệu.
+- Bước 6: Backend xác minh mật khẩu bằng cách băm mật khẩu với muối mật khẩu (PasswordSalt) đã lưu trong DB và đối chiếu với PasswordHash.
+- Bước 7: Nếu thông tin chính xác, Backend tạo chữ ký số JWT chứa các thông tin Claims (UserId, Username, Role) và trả về phản hồi thành công gồm: JWT Token, Username và vai trò người dùng (Role).
+- Bước 8: Frontend nhận kết quả, lưu các giá trị `authToken`, `username`, và `userRole` vào bộ nhớ trình duyệt `localStorage`.
+- Bước 9: Hệ thống kiểm tra vai trò người dùng (Role) và thực hiện chuyển hướng:
+  + Nếu Role là "Admin": Chuyển hướng sang trang quản trị [admin.html](file:///d:/C%23/Doan/Frontend/admin.html).
+  + Nếu Role là "Owner": Chuyển hướng sang trang quản lý của chủ quán [owner.html](file:///d:/C%23/Doan/Frontend/owner.html).
+  + Nếu là tài khoản du khách (Public): Chuyển hướng sang trang bản đồ chính [index.html](file:///d:/C%23/Doan/Frontend/index.html).
+
+3. LUỒNG SỰ KIỆN MỞ RỘNG (EXTENDED FLOWS - <<extend>>)
+
+3.1. Đăng xuất hệ thống (Logout)
+- Tại bất kỳ thời điểm nào khi đang ở trong trang quản lý (Admin/Owner Portal), người dùng click vào nút "Đăng xuất" (Logout).
+- Hệ thống Frontend xóa bỏ toàn bộ khóa lưu trữ trong trình duyệt bằng hàm `localStorage.clear()`.
+- Trình duyệt tự động chuyển hướng người dùng quay trở lại trang đăng nhập [login.html](file:///d:/C%23/Doan/Frontend/login.html).
+
+4. LUỒNG NGOẠI LỆ (EXCEPTION FLOWS)
+
+4.1. Sai tên đăng nhập hoặc mật khẩu
+- Tại Bước 6: Nếu tên đăng nhập không tồn tại hoặc mật khẩu nhập không khớp:
+- Backend trả về lỗi HTTP 401 Unauthorized kèm thông điệp báo lỗi.
+- Frontend hiển thị dòng chữ cảnh báo màu đỏ bên dưới Form: "Tên đăng nhập hoặc mật khẩu không chính xác." để người dùng nhập lại.
+
+4.2. Tài khoản đang bị Khóa (Account Locked)
+- Backend trả về lỗi HTTP 400 Bad Request kèm thông điệp báo lỗi: "Tài khoản của bạn đã bị khóa hoặc chưa được kích hoạt."
+- Frontend hiển thị thông báo lỗi tương ứng để người dùng liên hệ Admin mở khóa.
+
+================================================================================
+
+MÔ TẢ VÀ BIỂU ĐỒ LỚP (CLASS DIAGRAM) HỆ THỐNG BACKEND
+
+1. DANH SÁCH CÁC LỚP THỰC THỂ (DATABASE ENTITIES)
+
+1.1. Lớp User (Quản lý tài khoản người dùng)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + DeviceUniqueId: string (Mã định danh duy nhất của thiết bị, dùng cho PWA)
+  + Username: string (Tên đăng nhập)
+  + PasswordHash: string (Mật khẩu đã mã hóa băm)
+  + PasswordSalt: string (Muối bảo mật mật khẩu)
+  + Role: string (Vai trò người dùng: "Public", "Owner", "Admin")
+  + FullName: string (Họ và tên)
+  + PhoneNumber: string (Số điện thoại)
+  + Email: string (Địa chỉ email)
+  + AvatarUrl: string (Đường dẫn ảnh đại diện)
+  + HasPaidAccess: bool (Trạng thái thanh toán Premium)
+  + PaymentActivatedAt: DateTime? (Thời gian kích hoạt Premium)
+  + IsVerified: bool (Trạng thái xác thực chủ quán)
+  + LastActive: DateTime (Thời gian hoạt động cuối)
+  + IsActive: bool (Trạng thái hoạt động của tài khoản)
+  + CccdEncrypted: string (Căn cước công dân đã mã hóa AES-256)
+
+1.2. Lớp FoodStall (Quản lý thông tin quán ăn ẩm thực)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + Name: string (Tên quán ăn)
+  + Address: string (Địa chỉ quán)
+  + Latitude: double (Vĩ độ tọa độ GPS)
+  + Longitude: double (Kinh độ tọa độ GPS)
+  + MenuImages: ICollection<StallMenuImage> (Mối quan hệ 1-N: tập hợp ảnh menu)
+  + OriginalHistory: string (Mô tả thuyết minh gốc tiếng Việt)
+  + OwnerId: Guid? (ID của chủ quán liên kết, cho phép Null đối với quán công cộng)
+  + IsVerified: bool (Trạng thái phê duyệt hiển thị của Admin)
+  + AdminNote: string (Ghi chú duyệt/từ chối của Admin)
+  + IsActive: bool (Trạng thái hoạt động/khóa của quán ăn)
+
+1.3. Lớp Localization (Quản lý dịch thuật và tệp âm thanh thuyết minh đa ngôn ngữ)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + FoodStallId: Guid (Khóa ngoại liên kết bảng FoodStall)
+  + FoodStall: FoodStall (Đối tượng quán ăn liên kết)
+  + LanguageCode: string (Mã ngôn ngữ: "en", "ja", "ko", "zh")
+  + TranslatedText: string (Nội dung mô tả thuyết minh đã dịch)
+  + TextHash: string (Mã băm MD5 của văn bản dịch để kiểm tra thay đổi)
+  + AudioUrl: string (Đường dẫn lưu tệp MP3 thuyết minh Edge-TTS tương ứng)
+
+1.4. Lớp StallMenuImage (Quản lý hình ảnh thực đơn quán ăn)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + FoodStallId: Guid (Khóa ngoại liên kết bảng FoodStall)
+  + FoodStall: FoodStall
+  + ImageUrl: string (Đường dẫn tệp ảnh menu)
+  + IsMainImage: bool (Đánh dấu là ảnh bìa/ảnh chính)
+  + DisplayOrder: int (Thứ tự hiển thị ảnh)
+  + CreatedAt: DateTime (Thời gian tải lên)
+
+1.5. Lớp StallVisit (Ghi nhận thông tin du khách ghé thăm phục vụ thống kê)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + FoodStallId: Guid (Khóa ngoại liên kết FoodStall)
+  + FoodStall: FoodStall
+  + UserId: Guid (Khóa ngoại liên kết User)
+  + User: User
+  + ActionType: string (Hành động ghi nhận: "START_AUDIO", "VIEW_MENU", "GPS_PROXIMITY")
+  + UserLatitude: double (Tọa độ vĩ độ của người dùng lúc ghé)
+  + UserLongitude: double (Tọa độ kinh độ của người dùng lúc ghé)
+  + DistanceMeter: double (Khoảng cách thực tế đo được từ người dùng tới quán)
+  + IsValidVisit: bool (Trạng thái lượt ghé hợp lệ sau khi loại bỏ trùng lắp/cooldown)
+  + CreatedAt: DateTime (Thời gian tạo bản ghi)
+
+1.6. Lớp UserTelemetry (Nhật ký hành động thời gian thực phục vụ Giám sát)
+- Thuộc tính:
+  + Id: Guid (Khóa chính)
+  + UserId: Guid (Khóa ngoại liên kết User)
+  + User: User
+  + Timestamp: DateTime (Thời gian tương tác)
+  + Latitude: double (Tọa độ vĩ độ)
+  + Longitude: double (Tọa độ kinh độ)
+  + Action: string (Hành động: "HEARTBEAT", "CHAT_AI", "SYNC_DATA")
+
+1.7. Các lớp thực thể khác hỗ trợ hệ thống:
+- OwnerRegistration: Đơn đăng ký tài khoản Chủ quán (UserId, CccdEncrypted, Status, AdminNote).
+- UserSession: Phiên đăng nhập phiên làm việc (UserId, Token, ExpiresAt).
+- PaymentTransaction: Giao dịch thanh toán cổng VNPay (UserId, TransactionId, ResponseCode, IsSuccess).
+- AiUsageLimit: Hạn mức sử dụng AI trong ngày của chủ quán (UserId, Date, Count).
+- Notification: Thông báo hệ thống gửi đến người dùng (UserId, Message, IsRead).
+- PendingUserProfileChange: Yêu cầu cập nhật thông tin cá nhân của người dùng chờ duyệt (UserId, FullName, PhoneNumber, Email).
+
+---
+
+2. LỚP ĐIỀU PHỐI CƠ SỞ DỮ LIỆU (AppDbContext)
+- Lớp AppDbContext thừa kế từ Microsoft.EntityFrameworkCore.DbContext.
+- Nhiệm vụ:
+  + Cung cấp các thuộc tính `DbSet<T>` tương ứng với 11 bảng thực thể trên.
+  + Phương thức `OnModelCreating(ModelBuilder)` thiết lập khóa chính, khóa ngoại, cấu hình các trường chỉ mục duy nhất (Ví dụ: `DeviceUniqueId` trên bảng User; composite index `FoodStallId` + `LanguageCode` trên bảng Localization).
+
+---
+
+3. CÁC LỚP DỊCH VỤ NGHIỆP VỤ (SERVICES)
+
+3.1. Dịch vụ VisitService (Kế thừa IVisitService)
+- Nhiệm vụ: Ghi nhận telemetry di chuyển của người dùng, tính khoảng cách, phát hiện lượt ghé thăm quán hợp lệ (áp dụng bộ lọc thời gian chờ - cooldown 10 phút để tránh trùng lặp) và truy vấn dữ liệu thống kê lượt ghé.
+- Phương thức chính:
+  + RecordVisitAsync(StallVisitRequest request, Guid userId): Task<StallVisitResponse>
+  + GetDashboardStatsAsync(): Task<List<DashboardVisitStatDto>>
+  + GetDailyStatsAsync(Guid foodStallId, DateTime fromDate, DateTime toDate): Task<List<DashboardDailyVisitDto>>
+
+3.2. Dịch vụ AudioGenerationPipeline (Kế thừa IAudioGenerationPipeline)
+- Nhiệm vụ: Tự động gọi API dịch thuật Gemini AI và chạy lệnh CLI Edge-TTS sinh file audio âm thanh đa ngôn ngữ ngầm (Background thread).
+- Phương thức chính:
+  + ProcessStallAsync(Guid foodStallId): Task (Dịch và sinh âm thanh)
+  + ProcessAllStallsAsync(): Task (Dịch thuật toàn bộ quán ăn)
+
+3.3. Lớp hỗ trợ EncryptionHelper
+- Nhiệm vụ: Mã hóa và giải mã dữ liệu CCCD nhạy cảm (AES-256); tạo muối băm mật khẩu bảo mật (PBKDF2).
+
+---
+
+4. CÁC LỚP ĐIỀU HƯỚNG YÊU CẦU (CONTROLLERS)
+- AuthController: Xử lý Đăng ký, Đăng nhập, Quản lý thông tin cá nhân.
+- OwnerController: Xử lý chỉnh sửa thông tin quán ăn và tải lên ảnh thực đơn của Chủ quán.
+- AdminController: Xử lý Phê duyệt các đơn đăng ký, đơn cập nhật quán, xem Telemetry Logs và khóa/mở khóa tài khoản/quán ăn.
+- FoodStallsController: Phục vụ khách du lịch tìm kiếm quán ăn và đồng bộ dữ liệu ngoại tuyến.
+- AiController: Xử lý yêu cầu trò chuyện Chat AI và tính năng tối ưu hóa mô tả quán ăn.
+- PaymentsController: Xử lý tích hợp cổng VNPay và thanh toán giả lập mở khóa Premium.
+- VisitController: Tiếp nhận các nhịp tim GPS telemetry gửi lên và tải dữ liệu thống kê đồ thị.
+
+---
+
+5. SƠ ĐỒ LỚP (CLASS DIAGRAM - FORMAT MERMAID)
+
+```mermaid
+classDiagram
+    %% Core Entities
+    class User {
+        +Guid Id
+        +string DeviceUniqueId
+        +string Username
+        +string PasswordHash
+        +string PasswordSalt
+        +string Role
+        +string FullName
+        +string PhoneNumber
+        +string Email
+        +string AvatarUrl
+        +bool HasPaidAccess
+        +DateTime? PaymentActivatedAt
+        +bool IsVerified
+        +DateTime LastActive
+        +bool IsActive
+        +string CccdEncrypted
+    }
+
+    class FoodStall {
+        +Guid Id
+        +string Name
+        +string Address
+        +double Latitude
+        +double Longitude
+        +ICollection~StallMenuImage~ MenuImages
+        +string OriginalHistory
+        +Guid? OwnerId
+        +bool IsVerified
+        +string AdminNote
+        +bool IsActive
+    }
+
+    class Localization {
+        +Guid Id
+        +Guid FoodStallId
+        +FoodStall FoodStall
+        +string LanguageCode
+        +string TranslatedText
+        +string TextHash
+        +string AudioUrl
+    }
+
+    class StallMenuImage {
+        +Guid Id
+        +Guid FoodStallId
+        +FoodStall FoodStall
+        +string ImageUrl
+        +bool IsMainImage
+        +int DisplayOrder
+        +DateTime CreatedAt
+    }
+
+    class StallVisit {
+        +Guid Id
+        +Guid FoodStallId
+        +FoodStall FoodStall
+        +Guid UserId
+        +User User
+        +string ActionType
+        +double UserLatitude
+        +double UserLongitude
+        +double DistanceMeter
+        +bool IsValidVisit
+        +DateTime CreatedAt
+    }
+
+    class UserTelemetry {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +DateTime Timestamp
+        +double Latitude
+        +double Longitude
+        +string Action
+    }
+
+    class OwnerRegistration {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +string FullName
+        +string CccdEncrypted
+        +string PhoneNumber
+        +string Email
+        +string Status
+        +DateTime CreatedAt
+        +string AdminNote
+    }
+
+    class UserSession {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +string Token
+        +DateTime ExpiresAt
+        +DateTime CreatedAt
+    }
+
+    class PaymentTransaction {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +string TransactionId
+        +string ResponseCode
+        +bool IsSuccess
+        +DateTime CreatedAt
+    }
+
+    class AiUsageLimit {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +DateTime Date
+        +int Count
+    }
+
+    class Notification {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +string Message
+        +bool IsRead
+        +DateTime CreatedAt
+    }
+
+    class PendingUserProfileChange {
+        +Guid Id
+        +Guid UserId
+        +User User
+        +string FullName
+        +string PhoneNumber
+        +string Email
+        +DateTime CreatedAt
+    }
+
+    %% DB context
+    class AppDbContext {
+        +DbSet~User~ Users
+        +DbSet~FoodStall~ FoodStalls
+        +DbSet~Localization~ Localizations
+        +DbSet~StallMenuImage~ StallMenuImages
+        +DbSet~StallVisit~ StallVisits
+        +DbSet~UserTelemetry~ UserTelemetries
+        +DbSet~OwnerRegistration~ OwnerRegistrations
+        +DbSet~UserSession~ UserSessions
+        +DbSet~PaymentTransaction~ PaymentTransactions
+        +DbSet~AiUsageLimit~ AiUsageLimits
+        +DbSet~Notification~ Notifications
+        +DbSet~PendingUserProfileChange~ PendingUserProfileChanges
+        #OnModelCreating(ModelBuilder)
+    }
+
+    %% Relationships between Entities
+    User "1" --> "0..*" UserTelemetry : Has
+    User "1" --> "0..*" OwnerRegistration : Files
+    User "1" --> "0..*" UserSession : Owns
+    User "1" --> "0..*" PaymentTransaction : Pays
+    User "1" --> "0..*" AiUsageLimit : Subject to
+    User "1" --> "0..*" Notification : Receives
+    User "1" --> "0..*" PendingUserProfileChange : Requests
+    User "1" --> "0..*" StallVisit : Performs
+    User "0..1" <-- "1" FoodStall : Owned by
+
+    FoodStall "1" --> "0..*" StallMenuImage : Contains MenuImages
+    FoodStall "1" --> "0..*" Localization : Has Localizations
+    FoodStall "1" --> "0..*" StallVisit : Visited
+
+    %% Entity mapping to Context
+    AppDbContext ..> User : Maps
+    AppDbContext ..> FoodStall : Maps
+    AppDbContext ..> Localization : Maps
+    AppDbContext ..> StallMenuImage : Maps
+    AppDbContext ..> StallVisit : Maps
+    AppDbContext ..> UserTelemetry : Maps
+
+    %% Services using DbContext
+    class VisitService {
+        -AppDbContext _dbContext
+        +RecordVisitAsync()
+        +GetDashboardStatsAsync()
+        +GetDailyStatsAsync()
+    }
+    class AudioGenerationPipeline {
+        -AppDbContext _dbContext
+        +ProcessStallAsync()
+        +ProcessAllStallsAsync()
+    }
+    
+    VisitService ..> AppDbContext : Uses
+    AudioGenerationPipeline ..> AppDbContext : Uses
+```
+

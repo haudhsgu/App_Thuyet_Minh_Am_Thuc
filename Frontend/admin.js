@@ -128,6 +128,8 @@ window.addEventListener('DOMContentLoaded', () => {
         // Redraw Leaflet map container fix
         setTimeout(() => liveMap.invalidateSize(), 100);
       }
+
+      refreshDashboardData();
     });
   });
 
@@ -313,11 +315,19 @@ async function loadRegistrations() {
       }
 
       registrationsTableBody.innerHTML = list.map(r => {
-        let actionCell = `<span style="color: var(--text-gray); font-weight: 600;">${r.status === 'Approved' ? 'Đã duyệt' : 'Đã từ chối'}</span>`;
+        let actionCell = `
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="action-btn" onclick="viewRegistrationDetails('${r.id}')" style="background:#512bd4;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Chi tiết</button>
+            <span style="color: var(--text-gray); font-weight: 600; font-size:11px;">${r.status === 'Approved' ? 'Đã duyệt' : 'Đã từ chối'}</span>
+          </div>
+        `;
         if (r.status === 'Pending') {
           actionCell = `
-            <button class="action-btn approve" onclick="approveRegistration('${r.id}')">Duyệt</button>
-            <button class="action-btn reject" onclick="openRejectModal('registration', '${r.id}')">Từ chối</button>
+            <div style="display:flex;gap:6px;">
+              <button class="action-btn" onclick="viewRegistrationDetails('${r.id}')" style="background:#512bd4;color:#fff;border:none;padding:4px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Chi tiết</button>
+              <button class="action-btn approve" onclick="approveRegistration('${r.id}')">Duyệt</button>
+              <button class="action-btn reject" onclick="openRejectModal('registration', '${r.id}')">Từ chối</button>
+            </div>
           `;
         }
 
@@ -428,10 +438,11 @@ window.viewSubmissionDetails = async (id, type) => {
               <b>Hình ảnh thực đơn (Menu):</b>
               <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;">
                 ${data.menuImages.map(img => {
-                  let url = img.imageUrl;
-                  if (!url.startsWith('http')) {
-                    url = url.startsWith('/menus') ? `${defaultServerUrl}/images${url}` : `${defaultServerUrl}/images/${url.replace(/^\/+/, '')}`;
-                  }
+                  let path = img.imageUrl.trim().replace(/\\/g, '/');
+                  if (path.startsWith('/')) path = path.substring(1);
+                  if (path.toLowerCase().startsWith('wwwroot/')) path = path.substring(8);
+                  if (!path.toLowerCase().startsWith('images/')) path = 'images/' + path;
+                  const url = path.startsWith('http') ? path : `${defaultServerUrl}/${path}`;
                   return `<img src="${url}" style="width: 100px; height: 100px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-color);" />`;
                 }).join('')}
               </div>
@@ -982,7 +993,9 @@ window.toggleUserActive = async (id) => {
     if (response.ok) {
       const data = await response.json();
       alert(data.isActive ? 'Tài khoản đã được hoạt động trở lại.' : 'Tài khoản đã ngưng hoạt động thành công.');
-      refreshDashboardData();
+      await loadUsers();
+      await loadAllStalls();
+      await loadMetrics();
     } else {
       alert('Thay đổi trạng thái tài khoản thất bại.');
     }
@@ -1120,9 +1133,12 @@ window.toggleStallActive = async (id) => {
     if (response.ok) {
       const data = await response.json();
       alert(data.isActive ? 'Quán ăn đã được hoạt động trở lại.' : 'Quán ăn đã ngưng hoạt động thành công.');
-      refreshDashboardData();
+      await loadUsers();
+      await loadAllStalls();
+      await loadMetrics();
     } else {
-      alert('Thay đổi trạng thái quán ăn thất bại.');
+      const errMsg = await response.text();
+      alert(errMsg || 'Thay đổi trạng thái quán ăn thất bại.');
     }
   } catch (err) {
     console.error('Toggle stall active failed:', err);
@@ -1286,12 +1302,25 @@ window.viewStallDetails = async (id) => {
       if (data.menuImages && data.menuImages.length > 0) {
         imagesInfo = `
           <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(90px, 1fr));gap:10px;margin-top:5px;">
-            ${data.menuImages.map(img => `
-              <div style="position:relative;border:1px solid var(--border-color);border-radius:6px;overflow:hidden;aspect-ratio:1;">
-                <img src="${escapeHtml(img.imageUrl)}" style="width:100%;height:100%;object-fit:cover;">
-                ${img.isMainImage ? '<span style="position:absolute;top:2px;left:2px;background:#FF7A00;font-size:8px;padding:1px 3px;border-radius:3px;color:#fff;">Chính</span>' : ''}
-              </div>
-            `).join('')}
+            ${data.menuImages.map(img => {
+              let path = img.imageUrl.trim().replace(/\\/g, '/');
+              if (path.startsWith('/')) {
+                path = path.substring(1);
+              }
+              if (path.toLowerCase().startsWith('wwwroot/')) {
+                path = path.substring(8);
+              }
+              if (!path.toLowerCase().startsWith('images/')) {
+                path = 'images/' + path;
+              }
+              const url = path.startsWith('http') ? path : `${defaultServerUrl}/${path}`;
+              return `
+                <div style="position:relative;border:1px solid var(--border-color);border-radius:6px;overflow:hidden;aspect-ratio:1;">
+                  <img src="${escapeHtml(url)}" style="width:100%;height:100%;object-fit:cover;">
+                  ${img.isMainImage ? '<span style="position:absolute;top:2px;left:2px;background:#FF7A00;font-size:8px;padding:1px 3px;border-radius:3px;color:#fff;">Chính</span>' : ''}
+                </div>
+              `;
+            }).join('')}
           </div>
         `;
       }
@@ -1327,6 +1356,95 @@ window.viewStallDetails = async (id) => {
     }
   } catch (err) {
     console.error('Fetch stall detail failed:', err);
+    detailModalBody.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi kết nối máy chủ.</div>';
+  }
+};
+
+window.viewRegistrationDetails = async (id) => {
+  if (!detailModal || !detailModalTitle || !detailModalBody) return;
+
+  detailModalTitle.innerText = "Chi Tiết Đơn Đăng Ký Chủ Quán & Cửa Hàng";
+  detailModalBody.innerHTML = '<div style="text-align:center;color:var(--text-gray);padding:20px;">Đang tải chi tiết...</div>';
+  detailModal.style.display = 'flex';
+
+  try {
+    const response = await fetch(`${defaultServerUrl}/api/admin/registrations/${id}/detail`, {
+      headers: getAuthHeaders()
+    });
+
+    if (handleAuthFailure(response)) return;
+
+    if (response.ok) {
+      const data = await response.json();
+
+      let stallHtml = '<div style="color:var(--text-gray);padding:10px 0;">Không có thông tin cửa hàng kèm theo.</div>';
+      if (data.stall) {
+        let menuHtml = '<div style="color:var(--text-gray);padding:5px 0;">Chưa cập nhật thực đơn.</div>';
+        if (data.stall.menuImages && data.stall.menuImages.length > 0) {
+          menuHtml = `
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:5px;">
+              ${data.stall.menuImages.map(img => {
+                let path = img.imageUrl.trim().replace(/\\/g, '/');
+                if (path.startsWith('/')) path = path.substring(1);
+                if (path.toLowerCase().startsWith('wwwroot/')) path = path.substring(8);
+                if (!path.toLowerCase().startsWith('images/')) path = 'images/' + path;
+                const url = path.startsWith('http') ? path : `${defaultServerUrl}/${path}`;
+                return `
+                  <div style="position:relative;border:1px solid var(--border-color);border-radius:6px;overflow:hidden;width:90px;height:90px;">
+                    <img src="${escapeHtml(url)}" style="width:100%;height:100%;object-fit:cover;">
+                    ${img.isMainImage ? '<span style="position:absolute;top:2px;left:2px;background:#FF7A00;font-size:8px;padding:1px 3px;border-radius:3px;color:#fff;">Chính</span>' : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          `;
+        }
+
+        stallHtml = `
+          <div style="background:rgba(255,255,255,0.02);padding:15px;border-radius:8px;border:1px solid var(--border-color);">
+            <p style="margin-bottom:8px;"><b>Tên quán ăn:</b> <span style="font-size:14px;font-weight:bold;color:var(--primary-color);">${escapeHtml(data.stall.name)}</span></p>
+            <p style="margin-bottom:8px;"><b>Địa chỉ:</b> ${escapeHtml(data.stall.address)}</p>
+            <p style="margin-bottom:8px;"><b>Vị trí GPS:</b> <code>${data.stall.latitude.toFixed(6)}, ${data.stall.longitude.toFixed(6)}</code></p>
+            <p style="margin-bottom:12px;"><b>Lịch sử / Giới thiệu quán ăn:</b></p>
+            <div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:6px;border:1px solid var(--border-color);max-height:100px;overflow-y:auto;white-space:pre-wrap;font-size:12px;color:var(--text-gray);margin-bottom:12px;">${escapeHtml(data.stall.originalHistory || 'Chưa cập nhật thuyết minh.')}</div>
+            <p style="margin-bottom:6px;"><b>Hình ảnh thực đơn & Cửa hàng:</b></p>
+            ${menuHtml}
+          </div>
+        `;
+      }
+
+      const regTime = new Date(data.createdAt).toLocaleString('vi-VN');
+
+      detailModalBody.innerHTML = `
+        <div style="margin-bottom:20px;">
+          <h4 style="color:var(--primary-color);font-size:14px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">1. Thông Tin Chủ Quán</h4>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;background:rgba(255,255,255,0.02);padding:15px;border-radius:8px;border:1px solid var(--border-color);">
+            <div>
+              <p style="margin-bottom:8px;"><b>Tên đăng nhập:</b> ${escapeHtml(data.username)}</p>
+              <p style="margin-bottom:8px;"><b>Họ và Tên:</b> ${escapeHtml(data.fullName)}</p>
+              <p style="margin-bottom:8px;"><b>Số CCCD:</b> <code>${escapeHtml(data.cccd)}</code></p>
+              <p style="margin-bottom:0;"><b>Thời gian gửi:</b> ${regTime}</p>
+            </div>
+            <div>
+              <p style="margin-bottom:8px;"><b>Số điện thoại:</b> ${escapeHtml(data.phoneNumber || '-')}</p>
+              <p style="margin-bottom:8px;"><b>Email:</b> ${escapeHtml(data.email || '-')}</p>
+              <p style="margin-bottom:8px;"><b>Trạng thái duyệt:</b> <span style="color:${data.status === 'Approved' ? '#00ff66' : (data.status === 'Pending' ? '#ff9d42' : '#ff3333')};font-weight:bold;">${data.status}</span></p>
+              <p style="margin-bottom:0;"><b>Ghi chú Admin:</b> <i>${escapeHtml(data.adminNote || 'Không có')}</i></p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="color:var(--primary-color);font-size:14px;margin-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.08);padding-bottom:4px;">2. Thông Tin Cửa Hàng Kèm Theo</h4>
+          ${stallHtml}
+        </div>
+      `;
+    } else {
+      const errText = await response.text();
+      detailModalBody.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi: ${escapeHtml(errText)}</div>`;
+    }
+  } catch (err) {
+    console.error('Fetch registration detail failed:', err);
     detailModalBody.innerHTML = '<div style="color:#ef4444;text-align:center;padding:20px;">Lỗi kết nối máy chủ.</div>';
   }
 };

@@ -46,15 +46,26 @@ namespace Backend.Controllers
                 return string.Empty;
             }
 
-            var trimmed = imageUrl.Trim();
+            var trimmed = imageUrl.Trim().Replace('\\', '/');
             if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
                 || trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
                 return trimmed;
             }
 
-            trimmed = trimmed.TrimStart('/', '\\');
-            return $"{baseUrl}/images/{trimmed}";
+            trimmed = trimmed.TrimStart('/');
+
+            if (trimmed.StartsWith("wwwroot/", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = trimmed.Substring(8);
+            }
+
+            if (!trimmed.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+            {
+                trimmed = "images/" + trimmed;
+            }
+
+            return $"{baseUrl}/{trimmed}";
         }
     }
 }
